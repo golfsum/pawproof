@@ -46,7 +46,7 @@ export function requireDb(): Firestore {
 
 // Transient permission/auth errors fire during sign-out and account-switch
 // transitions while the previous listener is still attached. Surfacing
-// them flashes a misleading "permission denied" — page-level handlers
+// them flashes a misleading "permission denied". Page-level handlers
 // should skip them.
 export function isTransientAuthError(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;

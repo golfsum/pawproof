@@ -142,7 +142,7 @@ export default function AdminUserDetailPage() {
               <Row label="Created" value={fmtDateTime(data.createdAt)} />
               <Row
                 label="Last sign-in"
-                value={data.lastSignInAt ? fmtDateTime(data.lastSignInAt) : "—"}
+                value={data.lastSignInAt ? fmtDateTime(data.lastSignInAt) : "-"}
               />
               <Row label="Free OCR scans used" value={String(data.freeOcrScansUsed ?? 0)} />
             </dl>

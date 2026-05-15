@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
   const auth = adminAuth();
   const db = adminDb();
 
-  // Page through all auth records — fine for early-stage volume.
+  // Page through all auth records. Fine for early-stage volume.
   // Beyond ~10k users we'd switch this to indexed Firestore reads.
   const result = await auth.listUsers(1000);
 

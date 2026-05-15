@@ -23,8 +23,8 @@ export default function PrivacyPage() {
           <h2>1. What we collect</h2>
           <p>
             <strong>Account information.</strong> When you sign up, we
-            collect the email address you provide (or that your sign-in
-            provider — Apple, Google — supplies). If you choose a display
+            collect the email address you provide, or that your sign-in
+            provider (Apple, Google) supplies. If you choose a display
             name or upload a profile photo, we store those too.
           </p>
           <p>
@@ -55,7 +55,7 @@ export default function PrivacyPage() {
 
           <h2>2. How we use it</h2>
           <ul>
-            <li>To run the app — show you your pets&apos; records, fire reminders, answer support tickets.</li>
+            <li>To run the app: show you your pets&apos; records, fire reminders, answer support tickets.</li>
             <li>To process Smart Scan documents via Google Gemini.</li>
             <li>To send transactional emails (account, password reset, ticket replies, billing).</li>
             <li>To detect abuse and keep the service running.</li>
@@ -69,24 +69,24 @@ export default function PrivacyPage() {
           <h2>3. Subprocessors</h2>
           <ul>
             <li>
-              <strong>Google Firebase</strong> — Authentication, Firestore
+              <strong>Google Firebase.</strong> Authentication, Firestore
               database, Cloud Storage, Cloud Functions, Crashlytics.
             </li>
             <li>
-              <strong>Google Gemini API</strong> — OCR on Smart Scan
+              <strong>Google Gemini API.</strong> OCR on Smart Scan
               documents. Documents are sent over TLS; per Google&apos;s
               terms, content from billed API requests is not used to
               train Google&apos;s models.
             </li>
             <li>
-              <strong>Apple App Store / Google Play</strong> — App
+              <strong>Apple App Store / Google Play.</strong> App
               distribution and in-app purchases for PawProof Plus.
             </li>
             <li>
-              <strong>Vercel</strong> — Hosting for pawproof.app.
+              <strong>Vercel.</strong> Hosting for pawproof.app.
             </li>
             <li>
-              <strong>Resend</strong> — Transactional email delivery.
+              <strong>Resend.</strong> Transactional email delivery.
             </li>
           </ul>
 
@@ -126,7 +126,7 @@ export default function PrivacyPage() {
             We use HTTPS everywhere, store data in Google&apos;s SOC 2
             compliant infrastructure, and scope Firestore security rules
             so each user can only read their own data. No system is
-            perfectly secure — if you suspect a breach, email{" "}
+            perfectly secure. If you suspect a breach, email{" "}
             <a href="mailto:support@pawproof.app">support@pawproof.app</a>.
           </p>
 

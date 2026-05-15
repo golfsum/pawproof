@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 // Security headers applied to every route. Mirrors the billsplit setup
-// minus Stripe — pawproof's web companion talks to Firebase only, plus
+// minus Stripe. Pawproof's web companion talks to Firebase only, plus
 // the email/contact sink. Tightened connect-src reflects that.
 const csp = [
   "default-src 'self'",

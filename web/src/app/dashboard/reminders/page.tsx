@@ -23,14 +23,14 @@ export default function RemindersPage() {
     return { overdue, today, upcoming };
   }, [reminders]);
 
-  const petName = (id: string) => pets.find((p) => p.id === id)?.name ?? "—";
+  const petName = (id: string) => pets.find((p) => p.id === id)?.name ?? "-";
 
   return (
     <div className="mx-auto max-w-5xl px-4 md:px-8 py-8">
       <h1 className="text-3xl font-bold tracking-tight">Reminders</h1>
       <p className="mt-1 text-muted text-sm">
-        Care tasks across all your pets. Mark complete in the mobile app —
-        the change syncs here instantly.
+        Care tasks across all your pets. Mark complete in the mobile app,
+        and the change syncs here instantly.
       </p>
 
       {loading ? (

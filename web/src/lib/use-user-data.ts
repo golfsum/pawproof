@@ -20,7 +20,7 @@ import type {
 
 // Hook that subscribes to the signed-in user's data in the same shape
 // the mobile app uses. One useEffect per collection so unmounts cleanly
-// tear down listeners — mirrors mobile's useData() provider.
+// tear down listeners. Mirrors mobile's useData() provider.
 
 interface UserData {
   pets: Pet[];

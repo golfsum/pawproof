@@ -4,8 +4,8 @@ import { adminAuth } from "./firebase-admin";
 
 // Admin authentication helpers. Source of truth is the ADMIN_UIDS env
 // var (comma-separated Firebase UIDs). Every admin API request verifies
-// the bearer token + UID membership server-side — there's no client-
-// side flag that could be tampered with.
+// the bearer token + UID membership server-side. There's no
+// client-side flag that could be tampered with.
 
 function adminUidSet(): Set<string> {
   const raw = process.env.ADMIN_UIDS ?? "";

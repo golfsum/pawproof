@@ -16,7 +16,7 @@ function UnsubscribeInner() {
   const [error, setError] = useState<string | null>(null);
 
   // If they arrived with both email + token (the path emails include),
-  // attempt the unsubscribe automatically — one click, no fuss.
+  // attempt the unsubscribe automatically. One click, no fuss.
   useEffect(() => {
     if (initialEmail && token) {
       void submit(initialEmail, token);

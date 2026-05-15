@@ -5,7 +5,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  /* PawProof palette — mirrors the mobile theme so a user moving from
+  /* PawProof palette. Mirrors the mobile theme so a user moving from
      app to web sees the same colors. Teal primary on cream surfaces,
      red danger for urgency, amber warning for soft alerts. */
   --background: #fdf9f3;

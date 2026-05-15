@@ -1,4 +1,4 @@
-// Mirrors a small subset of the mobile date helpers — just enough for
+// Mirrors a small subset of the mobile date helpers. Just enough for
 // the dashboard counters and badges. ISO strings in, numbers/booleans
 // out.
 

@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "./ui/button";
 
-// Public site chrome — header + footer that wraps the marketing pages
+// Public site chrome: header + footer that wraps the marketing pages
 // (landing, legal, contact) and any non-app route. The dashboard uses
 // its own shell instead.
 
@@ -102,7 +102,7 @@ export function SiteFooter() {
             PawProof
           </div>
           <p className="mt-3 text-sm text-muted max-w-xs">
-            The pet care journal — vaccines, reminders, records, and emergency
+            The pet care journal: vaccines, reminders, records, and emergency
             info for every pet in your household.
           </p>
         </div>

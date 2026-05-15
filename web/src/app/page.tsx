@@ -64,7 +64,7 @@ export default function Home() {
           <div className="mx-auto max-w-6xl px-4 pt-16 pb-20 md:pt-24 md:pb-28 text-center">
             <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-xs font-semibold text-primary-dark">
               <span className="inline-block h-2 w-2 rounded-full bg-primary" />
-              Free for 2 pets — no card required
+              Free for 2 pets, no card required
             </span>
             <h1 className="mt-6 text-4xl md:text-6xl font-extrabold tracking-tight text-foreground">
               Every pet&apos;s care,
@@ -103,7 +103,7 @@ export default function Home() {
                 Everything a pet&apos;s care needs.
               </h2>
               <p className="mt-3 text-muted">
-                Built for people who actually keep records — not just promise
+                Built for people who actually keep records, not just promise
                 themselves they will.
               </p>
             </div>

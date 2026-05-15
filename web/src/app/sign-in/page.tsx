@@ -93,7 +93,7 @@ function SignInInner() {
       </h1>
       <p className="mt-2 text-muted text-sm">
         {mode === "signup"
-          ? "Free for 2 pets — no card required."
+          ? "Free for 2 pets, no card required."
           : mode === "signin"
             ? "Sign in to manage your pets across web + mobile."
             : "We'll email you a reset link."}

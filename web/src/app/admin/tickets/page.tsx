@@ -73,8 +73,8 @@ export default function AdminTicketsPage() {
             All support requests across users.{" "}
             {filterUid ? (
               <>
-                Filtered to UID <span className="font-mono">{filterUid}</span>{" "}
-                — <Link className="text-primary font-semibold" href="/admin/tickets">clear</Link>
+                Filtered to UID <span className="font-mono">{filterUid}</span>.{" "}
+                <Link className="text-primary font-semibold" href="/admin/tickets">Clear</Link>
               </>
             ) : null}
           </p>
@@ -130,7 +130,7 @@ export default function AdminTicketsPage() {
                   </div>
                   <div className="text-xs text-muted line-clamp-1">{t.message}</div>
                   <div className="text-[11px] text-faint mt-0.5">
-                    {t.email ?? "no email"} · {t.platform ?? "—"} · {t.appVersion ?? ""}
+                    {t.email ?? "no email"} · {t.platform ?? "-"} · {t.appVersion ?? ""}
                   </div>
                 </div>
                 <div className="text-xs text-faint shrink-0">

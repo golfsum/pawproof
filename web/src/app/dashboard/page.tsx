@@ -124,7 +124,7 @@ export default function DashboardOverview() {
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium truncate">{e.title}</div>
                     <div className="text-xs text-muted truncate">
-                      {pet?.name ?? "—"}
+                      {pet?.name ?? "-"}
                       {e.note ? ` · ${e.note}` : ""}
                     </div>
                   </div>

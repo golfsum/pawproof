@@ -176,12 +176,12 @@ export default function AdminTicketDetailPage() {
                   {issue.displayName || issue.email || issue.uid}
                 </Link>
               </Row>
-              <Row label="Email">{issue.email ?? "—"}</Row>
+              <Row label="Email">{issue.email ?? "-"}</Row>
               <Row label="Platform">
-                {issue.platform ?? "—"} · {issue.appVersion ?? ""}
+                {issue.platform ?? "-"} · {issue.appVersion ?? ""}
                 {issue.buildNumber ? ` (build ${issue.buildNumber})` : ""}
               </Row>
-              <Row label="Device">{issue.deviceModel ?? "—"}</Row>
+              <Row label="Device">{issue.deviceModel ?? "-"}</Row>
               <Row label="Source">{issue.source}</Row>
               <Row label="Opened">{fmtDateTime(issue.createdAt)}</Row>
             </dl>

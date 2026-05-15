@@ -21,10 +21,10 @@ export default function SettingsPage() {
       <section className="mt-8 rounded-2xl border border-border bg-surface p-5">
         <h2 className="font-semibold">Account</h2>
         <dl className="mt-3 text-sm grid gap-2">
-          <Row label="Email" value={user?.email ?? "—"} />
-          <Row label="Display name" value={user?.displayName ?? "—"} />
-          <Row label="Provider" value={user?.providerData?.[0]?.providerId ?? "—"} />
-          <Row label="User ID" value={user?.uid ?? "—"} mono />
+          <Row label="Email" value={user?.email ?? "-"} />
+          <Row label="Display name" value={user?.displayName ?? "-"} />
+          <Row label="Provider" value={user?.providerData?.[0]?.providerId ?? "-"} />
+          <Row label="User ID" value={user?.uid ?? "-"} mono />
         </dl>
       </section>
 

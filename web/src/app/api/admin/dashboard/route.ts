@@ -5,7 +5,7 @@ import { listAllIssues } from "@/lib/support-server";
 
 export const runtime = "nodejs";
 
-// Admin overview — totals for the home tile row and the recent ticket
+// Admin overview. Totals for the home tile row and the recent ticket
 // strip. Cheap aggregate reads; for a large user base we'd switch to
 // counter docs maintained by Cloud Functions.
 
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Pet counts are per-user subcollections. Sum them with a parallel
-  // fan-out — keeps the request fast even with hundreds of users.
+  // fan-out. Keeps the request fast even with hundreds of users.
   await Promise.all(
     usersSnap.docs.map(async (doc) => {
       const pets = await db

@@ -5,7 +5,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://pawproof.app"),
   title: {
-    default: "PawProof — The pet care journal",
+    default: "PawProof: The pet care journal",
     template: "%s · PawProof",
   },
   description:

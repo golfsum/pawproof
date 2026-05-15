@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL ?? "noreply@pawproof.app";
   if (!apiKey) {
-    console.warn("[contact] RESEND_API_KEY not set — message dropped on the floor");
+    console.warn("[contact] RESEND_API_KEY not set, message dropped on the floor");
     return NextResponse.json(
       { error: "Email service not configured. Please email support@pawproof.app directly." },
       { status: 503 },

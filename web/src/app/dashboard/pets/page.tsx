@@ -12,7 +12,7 @@ export default function PetsPage() {
       <h1 className="text-3xl font-bold tracking-tight">Your Pets</h1>
       <p className="mt-1 text-muted text-sm">
         {pets.length === 0
-          ? "Add pets from the PawProof mobile app — they'll show up here automatically."
+          ? "Add pets from the PawProof mobile app. They'll show up here automatically."
           : `${pets.length} pet${pets.length === 1 ? "" : "s"} on file.`}
       </p>
 

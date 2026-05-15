@@ -42,7 +42,7 @@ export default function ContactPage() {
         <div className="mx-auto max-w-3xl px-4 py-16">
           <h1 className="text-4xl font-bold tracking-tight">Get in touch</h1>
           <p className="mt-3 text-muted max-w-xl">
-            Questions, feedback, bugs, billing — we read every message.
+            Questions, feedback, bugs, billing: we read every message.
             Direct route is{" "}
             <a className="text-primary font-semibold" href="mailto:support@pawproof.app">
               support@pawproof.app
@@ -52,7 +52,7 @@ export default function ContactPage() {
 
           {sent ? (
             <div className="mt-8 rounded-2xl border border-primary bg-primary-soft p-6">
-              <h2 className="font-semibold text-lg">Thanks — we got it.</h2>
+              <h2 className="font-semibold text-lg">Thanks, we got it.</h2>
               <p className="mt-1 text-sm text-muted">
                 We&apos;ll reply to{" "}
                 <span className="font-semibold">{email}</span> within a
@@ -121,7 +121,7 @@ export default function ContactPage() {
             <a className="text-primary font-semibold" href="/dashboard/support">
               Support
             </a>{" "}
-            page in your dashboard — your ticket will include the right
+            page in your dashboard. Your ticket will include the right
             context so we can help faster.
           </p>
         </div>

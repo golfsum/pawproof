@@ -190,7 +190,7 @@ export async function appendUserReply(
       thread: [...thread, next],
       updatedAt: FieldValue.serverTimestamp(),
     };
-    // Reopen completed issues when the user replies — they're saying
+    // Reopen completed issues when the user replies. They're saying
     // "actually it's not done."
     if (data.status === "completed") {
       update.status = "open";

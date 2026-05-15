@@ -114,7 +114,7 @@ export default function TicketDetailPage() {
           <section className="mt-6 space-y-3">
             {issue.thread.length === 0 ? (
               <p className="text-sm text-muted text-center py-4">
-                No replies yet — we&apos;ll be in touch.
+                No replies yet. We&apos;ll be in touch.
               </p>
             ) : (
               issue.thread.map((m, i) => (

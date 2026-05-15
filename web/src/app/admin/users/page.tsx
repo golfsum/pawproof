@@ -120,7 +120,7 @@ export default function AdminUsersPage() {
                   </td>
                   <td className="px-4 py-3 align-top text-xs text-muted">{fmtDate(u.createdAt)}</td>
                   <td className="px-4 py-3 align-top text-xs text-muted">
-                    {u.lastSignInAt ? relativeTime(u.lastSignInAt) : "—"}
+                    {u.lastSignInAt ? relativeTime(u.lastSignInAt) : "-"}
                   </td>
                 </tr>
               ))}

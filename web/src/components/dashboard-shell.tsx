@@ -12,7 +12,7 @@ import { Button } from "./ui/button";
 // Shell for /dashboard/* and /admin/*. Provides:
 //  - auth guard (kicks unauthenticated users to /sign-in)
 //  - admin probe (so /admin/* can flip the user away to /dashboard if
-//    they're not actually admins — defence in depth on top of the
+//    they're not actually admins. Defence in depth on top of the
 //    server-side requireAdmin() check on every API call)
 //  - left rail + top bar
 //
@@ -60,7 +60,7 @@ export function DashboardShell({
     }
   }, [user, loading, router, pathname]);
 
-  // Admin probe — only relevant under /admin. Endpoint verifies the
+  // Admin probe, only relevant under /admin. Endpoint verifies the
   // bearer token server-side; client never gets to fake the answer.
   useEffect(() => {
     if (kind !== "admin" || !user) return;

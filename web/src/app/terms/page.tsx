@@ -35,7 +35,7 @@ export default function TermsPage() {
 
           <h2>3. Your content</h2>
           <p>
-            You own everything you upload — pet records, photos,
+            You own everything you upload: pet records, photos,
             documents, journal entries. You grant PawProof a worldwide,
             royalty-free license to store, process, transmit, and
             display your content solely to operate the Service for you.
@@ -62,7 +62,7 @@ export default function TermsPage() {
             <strong>Billing.</strong> PawProof Plus is billed through
             your Apple ID or Google Play account. Subscriptions renew
             automatically until cancelled. Manage or cancel from your
-            Apple ID / Google Play settings — not from us.
+            Apple ID / Google Play settings, not from us.
           </p>
           <p>
             <strong>Free trial.</strong> The 7-day free trial converts to
