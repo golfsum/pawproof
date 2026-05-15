@@ -1,0 +1,103 @@
+@import "tailwindcss";
+
+/* Class-based dark mode so we can opt-in to the dark palette without
+   reacting to OS preference. Default = light (cream brand). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* PawProof palette — mirrors the mobile theme so a user moving from
+     app to web sees the same colors. Teal primary on cream surfaces,
+     red danger for urgency, amber warning for soft alerts. */
+  --background: #fdf9f3;
+  --surface: #ffffff;
+  --surface-elevated: #fbfaf6;
+  --foreground: #16252e;
+  --muted: #5b6770;
+  --muted-foreground: #5b6770;
+  --faint: #9aa6ae;
+
+  --primary: #2a8fa8;
+  --primary-dark: #1e6c80;
+  --primary-soft: #e1f1f5;
+
+  --danger: #ba1a1a;
+  --danger-soft: #fde2e1;
+
+  --warning: #b58400;
+  --warning-soft: #fcf2cc;
+
+  --success: #2a8fa8;
+  --success-soft: #d6ecf2;
+
+  --border: #e8e1d4;
+  --border-strong: #d5cdbf;
+  --divider: #efeae0;
+}
+
+.dark {
+  --background: #0e1a20;
+  --surface: #14242c;
+  --surface-elevated: #18303a;
+  --foreground: #f1efe8;
+  --muted: #9aa6ae;
+  --muted-foreground: #9aa6ae;
+  --faint: #6b7a82;
+
+  --primary: #4cb7dc;
+  --primary-dark: #2a8fa8;
+  --primary-soft: rgba(76, 183, 220, 0.16);
+
+  --danger: #ff6470;
+  --danger-soft: rgba(255, 100, 112, 0.16);
+
+  --warning: #f6b94b;
+  --warning-soft: rgba(246, 185, 75, 0.16);
+
+  --success: #4cb7dc;
+  --success-soft: rgba(76, 183, 220, 0.16);
+
+  --border: #1f3744;
+  --border-strong: #2a4a59;
+  --divider: #1a3140;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-primary-soft: var(--primary-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-divider: var(--divider);
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+}

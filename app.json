@@ -1,0 +1,78 @@
+{
+  "expo": {
+    "name": "PawProof",
+    "slug": "pawproof",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "pawproof",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FAF1DD"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.pawproof.app",
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "PawProof uses the camera so you can scan vaccine records and take photos of your pets.",
+        "NSPhotoLibraryUsageDescription": "PawProof needs access to your photos so you can attach pictures of your pets, their documents, and journal entries.",
+        "NSPhotoLibraryAddUsageDescription": "PawProof saves exported pet health summaries to your photo library when you ask.",
+        "NSUserNotificationsUsageDescription": "PawProof sends reminders for feeding, walks, medications, and vaccine expirations.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.pawproof.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#FAF7F2"
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "PawProof needs access to your photos so you can attach pictures of your pets and their documents.",
+          "cameraPermission": "PawProof uses the camera so you can scan vaccine records and take photos of your pets."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#3B82F6"
+        }
+      ],
+      "expo-apple-authentication",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.REPLACE_ME_WITH_REVERSED_IOS_CLIENT_ID"
+        }
+      ],
+      "expo-asset"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "2a49e32a-c44b-4280-b17f-20a2de25cb26"
+      }
+    }
+  }
+}
