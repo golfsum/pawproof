@@ -40,7 +40,8 @@ export async function requireAdmin(req: NextRequest): Promise<
   let decoded;
   try {
     decoded = await adminAuth().verifyIdToken(idToken);
-  } catch {
+  } catch (err) {
+    console.error("[admin-auth] verifyIdToken failed:", err);
     return {
       ok: false,
       response: new Response(JSON.stringify({ error: "Invalid auth token" }), {
