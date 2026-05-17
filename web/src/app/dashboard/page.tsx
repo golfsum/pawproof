@@ -35,7 +35,7 @@ import {
   SectionLabel,
   StatusCard,
 } from "@/components/app-ui";
-import type { JournalEntry, Reminder, VaccineRecord } from "@/lib/types";
+import { getEntryPetIds, type JournalEntry, type Reminder, type VaccineRecord } from "@/lib/types";
 
 // /dashboard Home — mirrors the iOS Home tab but tuned for the larger
 // surface. Desktop renders a 2-column grid (main feed on the left,
@@ -264,7 +264,13 @@ export default function DashboardOverview() {
   // identical Bordetella rows on the dashboard" problem the spec
   // calls out specifically.
   type NeedsBlock = {
-    pet: { id: string; name: string; species?: string; breed?: string; photoUrl?: string | null };
+    pet: {
+      id: string;
+      name: string;
+      species?: string;
+      breed?: string;
+      photoUrl?: string | null;
+    };
     overdueTasks: Reminder[];
     expiredVaccines: VaccineRecord[];
     totalIssues: number;
@@ -560,7 +566,7 @@ export default function DashboardOverview() {
                   >
                     <div className="pet-card">
                       <div className="pet-card-header">
-                        <PetAvatar name={p.name} />
+                        <PetAvatar pet={p} />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div className="pet-name">{p.name}</div>
                           <div className="pet-sub">
@@ -595,9 +601,20 @@ export default function DashboardOverview() {
           ) : (
             <Card noPadding>
               {recentEntries.map((e) => {
-                const pet = pets.find((p) => p.id === e.petId);
+                // Multi-pet entries cover several pets; join their
+                // names so the row reads "Yahzi, Moqui, and Lovie"
+                // instead of just the primary pet.
+                const entryPets = getEntryPetIds(e)
+                  .map((id) => pets.find((p) => p.id === id))
+                  .filter((p): p is NonNullable<typeof p> => !!p);
+                const sub = entryPets.length === 0
+                  ? "—"
+                  : entryPets.length === 1
+                    ? entryPets[0].name
+                    : entryPets.length === 2
+                      ? `${entryPets[0].name} and ${entryPets[1].name}`
+                      : `${entryPets.slice(0, -1).map((p) => p.name).join(", ")}, and ${entryPets[entryPets.length - 1].name}`;
                 const Icon = iconForJournalType(e.type);
-                const sub = pet?.name ? pet.name : "—";
                 return (
                   <ListRow
                     key={e.id}
@@ -1014,7 +1031,7 @@ function NeedsAttentionCard({
   overdueTasks,
   expiredVaccines,
 }: {
-  pet: { id: string; name: string; species?: string };
+  pet: { id: string; name: string; species?: string; photoUrl?: string | null };
   overdueTasks: Reminder[];
   expiredVaccines: VaccineRecord[];
 }) {
@@ -1044,7 +1061,7 @@ function NeedsAttentionCard({
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded}
       >
-        <PetAvatar name={pet.name} size={44} />
+        <PetAvatar pet={pet} size={44} />
         <div className="needs-head-text">
           <span className="needs-name">{pet.name} needs attention</span>
           <span className="needs-summary">{summary}</span>

@@ -70,7 +70,7 @@ export default function RemindersPage() {
           {groupedByPet.map((g) => (
             <div key={g.pet.id} className="pet-section">
               <div className="pet-header">
-                <PetAvatar name={g.pet.name} size={36} />
+                <PetAvatar pet={g.pet} size={36} />
                 <div style={{ flex: 1 }}>
                   <div className="pet-name">{g.pet.name}</div>
                   <div className="pet-sub">

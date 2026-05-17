@@ -103,15 +103,25 @@ export default function EditPetScreen() {
         : null;
 
     setSaving(true);
-    try {
-      let photoUrl = originalPhotoUrl;
-      if (photoUri !== originalPhotoUrl) {
-        if (photoUri && !photoUri.startsWith('http')) {
+    let photoUrl = originalPhotoUrl;
+    let photoUploadFailure: string | null = null;
+    if (photoUri !== originalPhotoUrl) {
+      if (photoUri && !photoUri.startsWith('http')) {
+        try {
           photoUrl = await uploadCompressedPhoto(user.uid, photoUri, 'pets');
-        } else {
-          photoUrl = photoUri;
+        } catch (e: any) {
+          // Keep the existing photo (if any) so the user doesn't
+          // lose what they had before a failed upload. The pet save
+          // itself still proceeds; we just warn afterwards.
+          photoUploadFailure = e?.message ?? 'Upload failed.';
+          console.warn('[pet/edit] photo upload failed, keeping previous', e);
+          photoUrl = originalPhotoUrl;
         }
+      } else {
+        photoUrl = photoUri;
       }
+    }
+    try {
       await updatePet(user.uid, pet.id, {
         name: name.trim(),
         species,
@@ -130,6 +140,12 @@ export default function EditPetScreen() {
         notes: notes.trim() || undefined,
         emergencyNotes: emergencyNotes.trim() || undefined,
       });
+      if (photoUploadFailure) {
+        Alert.alert(
+          'Saved without new photo',
+          `Profile updates were saved, but the new photo couldn't be uploaded: ${photoUploadFailure} Try again from this screen.`,
+        );
+      }
       router.back();
     } catch (e: any) {
       Alert.alert('Could not save', e?.message ?? 'Try again.');

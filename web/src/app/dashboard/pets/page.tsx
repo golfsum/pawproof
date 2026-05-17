@@ -66,7 +66,7 @@ export default function PetsPage() {
               <Link key={pet.id} href="/dashboard/pets" className="pet-link">
                 <div className="pet-card">
                   <div className="pet-card-header">
-                    <PetAvatar name={pet.name} size={56} />
+                    <PetAvatar pet={pet} size={56} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div className="pet-name">{pet.name}</div>
                       <div className="pet-sub">

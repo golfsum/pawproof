@@ -354,22 +354,60 @@ export function Chip({
   );
 }
 
+// Avatar that prefers the pet's uploaded photo, falls back to a
+// colored initial. Mirrors the mobile PetAvatar so the web reads as
+// the same product. Callers pass the full pet for symmetry with the
+// mobile API; the legacy `name`-only signature still works for the
+// rare case where we don't have a pet object handy.
 export function PetAvatar({
+  pet,
   name,
+  photoUrl,
   size = 48,
   tone = "#E1F1F5",
 }: {
-  name: string;
+  /** Preferred: pass the full pet so we get photo + name + species. */
+  pet?: { name: string; photoUrl?: string | null; species?: string };
+  /** Fallback when we only have a string (e.g. denormalized share row). */
+  name?: string;
+  /** Direct photo override; rare. */
+  photoUrl?: string | null;
   size?: number;
   tone?: string;
 }) {
-  const initial = name?.[0]?.toUpperCase() ?? "?";
+  const resolvedName = pet?.name ?? name ?? "?";
+  const resolvedPhoto = photoUrl ?? pet?.photoUrl ?? null;
+  const initial = resolvedName[0]?.toUpperCase() ?? "?";
+
+  const base = {
+    width: size,
+    height: size,
+    borderRadius: 999,
+    flexShrink: 0,
+  } as const;
+
+  if (resolvedPhoto) {
+    // Plain <img> with `loading="lazy"` so a long pet list doesn't
+    // block initial render. Firebase download URLs serve with proper
+    // CORS for the configured bucket, so no proxy needed.
+    return (
+      <img
+        src={resolvedPhoto}
+        alt={resolvedName}
+        loading="lazy"
+        style={{
+          ...base,
+          objectFit: "cover",
+          background: "#f3eddf",
+        }}
+      />
+    );
+  }
+
   return (
     <div
       style={{
-        width: size,
-        height: size,
-        borderRadius: 999,
+        ...base,
         background: tone,
         color: "#2a8fa8",
         fontWeight: 700,
@@ -377,8 +415,8 @@ export function PetAvatar({
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        flexShrink: 0,
       }}
+      aria-label={resolvedName}
     >
       {initial}
     </div>

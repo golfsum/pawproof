@@ -66,11 +66,23 @@ export default function AddPetScreen() {
         : null;
 
     setSaving(true);
-    try {
-      let photoUrl: string | null = null;
-      if (photoUri) {
+    let photoUrl: string | null = null;
+    let photoUploadFailure: string | null = null;
+    // Upload the photo BEFORE creating the pet doc so we can persist
+    // the URL in the same write. If the upload throws (denied storage
+    // rules, network), we still save the pet without a photo and
+    // surface a separate non-blocking warning — the user shouldn't
+    // lose every field they filled in just because the picture
+    // couldn't be uploaded.
+    if (photoUri) {
+      try {
         photoUrl = await uploadCompressedPhoto(user.uid, photoUri, 'pets');
+      } catch (e: any) {
+        photoUploadFailure = e?.message ?? 'Upload failed.';
+        console.warn('[pet/add] photo upload failed, saving without photo', e);
       }
+    }
+    try {
       const id = await createPet(user.uid, {
         name: name.trim(),
         species,
@@ -89,6 +101,15 @@ export default function AddPetScreen() {
         notes: notes.trim() || undefined,
         emergencyNotes: emergencyNotes.trim() || undefined,
       });
+      if (photoUploadFailure) {
+        // Pet saved, photo didn't. Surface separately so the user
+        // knows where to look — usually a Firebase Storage rules
+        // issue. They can re-upload from the Edit screen.
+        Alert.alert(
+          'Pet saved without photo',
+          `${name.trim()} was saved, but the photo couldn't be uploaded: ${photoUploadFailure} You can try again from Edit.`,
+        );
+      }
       router.replace({ pathname: '/pet/[id]', params: { id } });
     } catch (e: any) {
       Alert.alert('Could not save', e?.message ?? 'Try again.');

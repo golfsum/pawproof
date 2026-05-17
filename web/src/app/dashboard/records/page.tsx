@@ -57,7 +57,7 @@ export default function RecordsPage() {
           {petGroups.map(({ pet, vaccines: vs, documents: ds }) => (
             <div key={pet.id} className="record-group">
               <div className="record-pet-header">
-                <PetAvatar name={pet.name} size={40} />
+                <PetAvatar pet={pet} size={40} />
                 <div style={{ flex: 1 }}>
                   <div className="record-pet-name">{pet.name}</div>
                   <div className="record-pet-sub">
