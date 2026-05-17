@@ -7,7 +7,7 @@ import { SocialAuthCancelled, isAppleAuthAvailable } from '@/lib/socialAuth';
 import { colors, radius, spacing } from '@/theme';
 
 interface Props {
-  /** Where the user is in the flow — only used to vary the disclosure copy. */
+  /** Where the user is in the flow. Only used to vary the disclosure copy. */
   mode?: 'sign-in' | 'sign-up';
 }
 
@@ -17,7 +17,7 @@ export function SocialAuthButtons({ mode = 'sign-in' }: Props) {
   const [busy, setBusy] = useState<'apple' | 'google' | null>(null);
 
   useEffect(() => {
-    // Wrap in catch — if the native module isn't in the current dev client
+    // Wrap in catch: if the native module isn't in the current dev client
     // build, isAvailableAsync throws synchronously inside the Promise.
     isAppleAuthAvailable()
       .then(setAppleAvailable)
@@ -86,7 +86,7 @@ function humanize(e: any): string {
   if (code.includes('auth/operation-not-allowed')) {
     return 'This sign-in method isn\'t enabled in Firebase. Open Authentication → Sign-in method to turn it on.';
   }
-  if (code.includes('auth/network')) return 'Network issue — check your connection and try again.';
+  if (code.includes('auth/network')) return 'Network issue. Check your connection and try again.';
   return e?.message ?? 'Something went wrong.';
 }
 

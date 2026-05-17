@@ -4,29 +4,43 @@ import { Ionicons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
 import { colors, radius, spacing } from '@/theme';
 import { PetAvatar } from './PetAvatar';
-import { fmtPetAge, fmtDate } from '@/utils/dates';
-import { SPECIES_LABEL, REMINDER_META } from '@/utils/petIcon';
-import type { Pet, Reminder, VaccineRecord } from '@/types/models';
+import { fmtPetAge } from '@/utils/dates';
+import { SPECIES_LABEL } from '@/utils/petIcon';
+import { pickPetPreview, type PetPreview } from '@/utils/petPreview';
+import type {
+  JournalEntry,
+  Pet,
+  Reminder,
+  VaccineRecord,
+} from '@/types/models';
 
 interface Props {
   pet: Pet;
-  nextReminder?: Reminder | null;
-  expiringVaccine?: VaccineRecord | null;
+  // Pet card now picks its own preview from the full reminders +
+  // vaccines + entries slices, so the priority ordering (Overdue >
+  // Expired > Due today > Expiring soon > Next > Last activity) can
+  // happen in one place instead of being split across parents.
+  reminders: Reminder[];
+  vaccines: VaccineRecord[];
+  entries: JournalEntry[];
 }
 
-export function PetCard({ pet, nextReminder, expiringVaccine }: Props) {
-  const reminderMeta = nextReminder ? REMINDER_META[nextReminder.type] ?? REMINDER_META.custom : null;
+const PREFIX_TINT: Record<PetPreview['tone'], { fg: string; bg: string; label: string }> = {
+  danger: { fg: colors.danger, bg: colors.dangerSoft, label: '#991b1b' },
+  warning: { fg: colors.warning, bg: colors.warningSoft, label: '#92400e' },
+  muted: { fg: colors.textMuted, bg: colors.cardSubtle, label: colors.textMuted },
+};
+
+export function PetCard({ pet, reminders, vaccines, entries }: Props) {
+  const preview = pickPetPreview({ pet, reminders, vaccines, entries });
   const age = fmtPetAge(pet.birthday, pet.approxAgeMonths);
-  const sub = [
-    SPECIES_LABEL[pet.species],
-    pet.breed,
-    age,
-  ].filter(Boolean).join(' · ');
+  const sub = [SPECIES_LABEL[pet.species], pet.breed, age]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <Link href={{ pathname: '/pet/[id]', params: { id: pet.id } }} asChild>
       <Pressable style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
-        {/* Header — avatar + name + chevron, always present */}
         <View style={styles.header}>
           <PetAvatar pet={pet} size={64} />
           <View style={styles.headerBody}>
@@ -38,30 +52,42 @@ export function PetCard({ pet, nextReminder, expiringVaccine }: Props) {
           </View>
         </View>
 
-        {/* Next reminder strip — only shows when there is one. Visually
-            separated by a soft divider so the card has weight even with
-            just a name. */}
-        {nextReminder && reminderMeta ? (
+        {/* One priority-ordered preview strip. Tone follows the
+            priority bucket so an overdue card reads urgent without
+            the user needing to parse the date. */}
+        {preview ? (
           <View style={styles.divider}>
-            <View style={[styles.dividerIcon, { backgroundColor: reminderMeta.tint + '22' }]}>
-              <Ionicons name={reminderMeta.icon as any} size={14} color={reminderMeta.tint} />
+            <View
+              style={[styles.dividerIcon, { backgroundColor: PREFIX_TINT[preview.tone].bg }]}
+            >
+              <Ionicons
+                name={preview.iconName as any}
+                size={14}
+                color={PREFIX_TINT[preview.tone].fg}
+              />
             </View>
             <Text style={styles.dividerText} numberOfLines={1}>
-              <Text style={styles.dividerLabel}>Next: </Text>
-              {nextReminder.title} · {fmtDate(nextReminder.dueDate)}
+              <Text
+                style={[
+                  styles.dividerLabel,
+                  { color: PREFIX_TINT[preview.tone].label },
+                ]}
+              >
+                {preview.prefix}:{' '}
+              </Text>
+              {preview.title} · {preview.whenLabel}
             </Text>
           </View>
-        ) : null}
-
-        {/* Expiring vaccine warning — separate, visible row when present */}
-        {expiringVaccine ? (
-          <View style={styles.warning}>
-            <Ionicons name="shield-half-outline" size={14} color="#92400e" />
-            <Text style={styles.warningText} numberOfLines={1}>
-              {expiringVaccine.vaccineName} expires {fmtDate(expiringVaccine.expirationDate)}
+        ) : (
+          <View style={styles.divider}>
+            <View style={[styles.dividerIcon, { backgroundColor: colors.cardSubtle }]}>
+              <Ionicons name="checkmark-circle-outline" size={14} color={colors.success} />
+            </View>
+            <Text style={[styles.dividerText, { color: colors.textMuted }]} numberOfLines={1}>
+              All caught up
             </Text>
           </View>
-        ) : null}
+        )}
       </Pressable>
     </Link>
   );
@@ -102,17 +128,6 @@ const styles = StyleSheet.create({
     width: 28, height: 28, borderRadius: 9,
     alignItems: 'center', justifyContent: 'center',
   },
-  dividerLabel: { color: colors.textMuted, fontWeight: '600' },
+  dividerLabel: { fontWeight: '700' },
   dividerText: { flex: 1, fontSize: 13, color: colors.text },
-
-  warning: {
-    backgroundColor: colors.warningSoft,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 8,
-    borderRadius: radius.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  warningText: { flex: 1, fontSize: 12, color: '#92400e', fontWeight: '600' },
 });

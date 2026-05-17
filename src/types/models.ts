@@ -2,6 +2,31 @@
 // shapes; Timestamps are normalised to ISO strings at the data layer so the
 // rest of the app can treat them as plain `Date | string`.
 
+// Caregiver sharing: lets a pet owner grant another user access to a
+// specific pet's records. Stored as a top-level collection so both the
+// owner and the invited user can read it. Pet docs themselves stay
+// under /users/{ownerUid}/pets/{petId}; consumers join the two via
+// `petId` + `ownerUid`.
+export type ShareRole = 'caregiver' | 'view_only';
+export type ShareStatus = 'pending' | 'accepted' | 'revoked';
+
+export interface PetShare {
+  id: string;
+  petId: string;
+  petName: string; // denormalized for display before the share is accepted
+  ownerUid: string;
+  ownerEmail: string | null;
+  ownerName: string | null;
+  inviteeEmail: string; // lowercased
+  inviteeUid: string | null; // null until accepted
+  role: ShareRole;
+  status: ShareStatus;
+  inviteCode: string; // short, used for "accept by code" flow
+  createdAt: string;
+  acceptedAt: string | null;
+  revokedAt: string | null;
+}
+
 export type Species =
   | 'dog'
   | 'cat'
@@ -24,6 +49,33 @@ export interface UserProfile {
    * to the paywall.
    */
   freeOcrScansUsed?: number;
+  /**
+   * Set to true once the user finishes (or skips) the 4-step onboarding
+   * wizard. The root layout uses this to decide whether to detour to
+   * /onboarding after sign-in.
+   */
+  onboardingCompleted?: boolean;
+  /**
+   * Tracking interests captured in onboarding step 2. Pure UX hint:
+   * powers default Quick Log surfaces and reminder suggestions, never
+   * gates anything. Strings match QuickLog kinds + a few extras.
+   */
+  trackingInterests?: string[];
+  /**
+   * Per-user notification preferences. Optional so existing users
+   * fall back to sensible defaults: group multi-pet reminders on,
+   * 14-day vaccine expiration warning window.
+   */
+  notificationPrefs?: {
+    groupMultiPet?: boolean;
+    vaccineWarnDays?: 14 | 30 | 60 | 90;
+  };
+  /**
+   * Preferred distance unit for walks and other movement stats. We store
+   * canonical distances in meters; the UI converts on read. Defaults to
+   * the locale's metric/imperial bias on first sign-in.
+   */
+  distanceUnit?: 'mi' | 'km';
   createdAt: string;
 }
 
@@ -52,6 +104,15 @@ export interface Pet {
   insurance?: string;
   notes?: string;
   emergencyNotes?: string;
+  // Care instructions, populated via the Care Instructions screen
+  // and surfaced in the Pet Sitter PDF and the emergency-card share
+  // text. Every field is optional; missing ones get skipped in
+  // generated docs so a half-filled section doesn't read awkward.
+  feedingInstructions?: string;
+  walkRoutine?: string;
+  behaviorNotes?: string;
+  boardingInstructions?: string;
+  favoriteThings?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -73,7 +134,21 @@ export type SymptomSeverity = 'mild' | 'medium' | 'serious';
 
 export interface JournalEntry {
   id: string;
+  /**
+   * Primary pet this entry is attached to. Kept for back-compat with
+   * existing single-pet entries and as the "anchor" pet in the rare
+   * code path that still expects exactly one pet. New writes always
+   * populate `petIds` as well; readers should prefer `petIds` and
+   * fall back to `[petId]`. Use `getEntryPetIds(entry)` to abstract.
+   */
   petId: string;
+  /**
+   * All pets this entry covers. Multi-pet entries (e.g. a group walk
+   * or dinner for the whole household) write one document with every
+   * pet ID in this array. Older single-pet entries don't have it; the
+   * helper falls back to `[petId]` for those.
+   */
+  petIds?: string[];
   type: JournalEntryType;
   title: string;
   note?: string;
@@ -83,7 +158,56 @@ export interface JournalEntry {
   subtype?: string | null;    // e.g. "breakfast", "vomiting"
   severity?: SymptomSeverity | null;
   photoUrl?: string | null;
+  /**
+   * Walk distance in meters. Canonical storage so unit prefs can change
+   * without touching the data. UI reads via `formatDistance` with the
+   * user's `distanceUnit`. Only set on walk entries (and only when the
+   * user logged or estimated a distance — duration-only walks leave it
+   * unset).
+   */
+  distanceMeters?: number | null;
+  /**
+   * Step count captured during the walk. Optional; usually only present
+   * when the device pedometer was available. UI shows it as secondary
+   * info, never as the headline number.
+   */
+  stepCount?: number | null;
+  /**
+   * How the walk's distance/steps were captured. Helps us label entries
+   * accurately and decide whether to trust the value. Only set on walk
+   * entries.
+   *   'manual'   — user typed the distance
+   *   'motion'   — captured live from CMPedometer / expo-sensors
+   *   'mixed'    — motion captured it but the user corrected the number
+   *   'healthkit'— pulled from HealthKit (future)
+   */
+  walkSource?: 'manual' | 'motion' | 'mixed' | 'healthkit';
+  // Who logged this. Defaults to the pet owner; populated explicitly
+  // when a caregiver (shared-access user) writes the entry so the
+  // timeline can credit them ("Fed by Noel at 7:42 AM").
+  actorUid?: string | null;
+  actorName?: string | null;
   createdAt: string;
+}
+
+/**
+ * Returns every pet this entry is associated with. Prefers the plural
+ * `petIds` field when present; otherwise falls back to the singular
+ * `petId`. Always returns at least one ID for valid entries.
+ */
+export function getEntryPetIds(entry: Pick<JournalEntry, 'petId' | 'petIds'>): string[] {
+  if (entry.petIds && entry.petIds.length > 0) return entry.petIds;
+  return entry.petId ? [entry.petId] : [];
+}
+
+/**
+ * True when this entry covers the given pet. Use this anywhere you
+ * used to write `entry.petId === pet.id` so multi-pet entries are
+ * counted for every pet they cover.
+ */
+export function entryCoversPet(entry: Pick<JournalEntry, 'petId' | 'petIds'>, petId: string): boolean {
+  if (entry.petIds && entry.petIds.length > 0) return entry.petIds.includes(petId);
+  return entry.petId === petId;
 }
 
 export type ReminderType =
@@ -109,8 +233,32 @@ export type RepeatType =
 export interface Reminder {
   id: string;
   petId: string;
+  /**
+   * Legacy field, kept for back-compat. New writes also set `category`
+   * (in `ReminderCategory` vocabulary — 'walk' instead of 'walking',
+   * 'general' instead of 'custom'). Renderers should prefer
+   * `getReminderCategory(reminder)` from `@/utils/reminderCategory`,
+   * which falls back to `type` cleanly.
+   */
   type: ReminderType;
+  /**
+   * New, user-facing category name (uses 'walk' / 'general' instead
+   * of 'walking' / 'custom'). Optional during the transition — old
+   * docs only have `type`, normalize via `getReminderCategory()`.
+   */
+  category?: string;
+  /**
+   * Legacy field, kept for back-compat. New writes also set `name`.
+   * Renderers should prefer `getReminderName(reminder)` which falls
+   * back to `title` and then to the category default name.
+   */
   title: string;
+  /**
+   * New, user-facing reminder name. Mirrors `title` for old docs;
+   * new docs write both fields so the web dashboard (which still
+   * reads `title`) keeps working.
+   */
+  name?: string;
   dueDate: string;
   repeatType: RepeatType;
   /** When repeatType === 'custom_days', repeat every N days. */
@@ -121,6 +269,16 @@ export interface Reminder {
   nextDueDate?: string | null;
   /** Local notification id from expo-notifications, so we can cancel it. */
   notificationId?: string | null;
+  /**
+   * Multi-pet reminders share a single groupId across every doc the
+   * form creates (one per pet). The UI uses it to collapse N rows into
+   * one card and to mark every pet done in a single tap. Single-pet
+   * reminders leave this unset. Legacy multi-pet reminders (created
+   * before this field existed) fall back to grouping by the shared
+   * `notificationId` — see `groupReminders()` for the resolution
+   * order.
+   */
+  groupId?: string;
   createdAt: string;
 }
 
@@ -135,6 +293,25 @@ export interface VaccineRecord {
   notes?: string;
   documentId?: string | null;
   reminderId?: string | null;
+  /**
+   * Whether this dose has actually been administered. Defaults true
+   * when missing so existing records read correctly. Set to false for
+   * "this is a planned future dose" rows — currently only used by the
+   * future Mark Done flow.
+   */
+  isCompleted?: boolean;
+  /**
+   * True when expirationDate was derived from a schedule lookup
+   * (vaccineSchedules) rather than read from the document or entered
+   * by the user. Surfaces "Estimated" badges so users know to verify.
+   */
+  expirationDerived?: boolean;
+  /**
+   * Source of the record. 'manual' = the user typed it. 'scan' = Smart
+   * Scan extracted it from an uploaded document. 'reminder' = a future
+   * Mark Done flow created it from a fired renewal reminder.
+   */
+  source?: 'manual' | 'scan' | 'reminder';
   createdAt: string;
 }
 
@@ -171,7 +348,7 @@ export type MedicationFrequency =
 
 /**
  * Long-running medication regimen. Distinct from the one-off journal entry
- * "medication" type — this captures the SCHEDULE (dose, frequency, dates,
+ * "medication" type. This captures the SCHEDULE (dose, frequency, dates,
  * instructions). Each administered dose becomes a JournalEntry of type
  * "medication" linked via medicationId so we can count missed doses later.
  */

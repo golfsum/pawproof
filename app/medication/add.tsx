@@ -9,7 +9,7 @@ import { Chip } from '@/components/Chip';
 import { useAuth } from '@/hooks/AuthProvider';
 import { useData } from '@/hooks/useData';
 import { createMedication, createReminder } from '@/lib/firestore';
-import { scheduleReminder } from '@/lib/notifications';
+import { scheduleReminderForPet } from '@/lib/notifications';
 import { colors, spacing } from '@/theme';
 import type { MedicationFrequency, RepeatType } from '@/types/models';
 
@@ -67,11 +67,13 @@ export default function AddMedicationScreen() {
       // notifications. As-needed meds skip the reminder.
       let reminderId: string | null = null;
       if (freqConfig.repeat !== 'none') {
-        const notifId = await scheduleReminder(
-          `${name.trim()} for ${pets.find(p => p.id === petId)?.name ?? 'your pet'}`,
-          `Dose: ${dosage.trim() || 'see medication'}${instructions.trim() ? ` · ${instructions.trim()}` : ''}`,
-          firstDoseAt,
-        );
+        const pet = pets.find(p => p.id === petId) ?? null;
+        const notifId = await scheduleReminderForPet({
+          pet,
+          reminderType: 'medication',
+          reminderTitle: name.trim(),
+          when: firstDoseAt,
+        });
         reminderId = await createReminder(user.uid, {
           petId,
           type: 'medication',

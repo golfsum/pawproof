@@ -23,13 +23,14 @@ import {
 import { useGate } from '@/hooks/useGate';
 import { colors, radius, spacing, typography } from '@/theme';
 import { fmtDate, fmtPetAge, daysUntil } from '@/utils/dates';
-import { fmtWeight } from '@/utils/units';
+import { fmtWeight, resolveDistanceUnit, type DistanceUnit } from '@/utils/units';
+import { getReminderName } from '@/utils/reminderCategory';
+import { findGroupForReminder } from '@/utils/reminderGroups';
+import { markReminderDone } from '@/lib/reminderActions';
 import { SPECIES_LABEL, JOURNAL_META } from '@/utils/petIcon';
-import { computeNextDueDate } from '@/utils/recurrence';
 import { deletePet, deleteEntry, deleteVaccine, updateReminder } from '@/lib/firestore';
 import { sharePetHealthPdf, shareSitterPdf } from '@/lib/pdf';
-import { scheduleReminder, cancelReminder } from '@/lib/notifications';
-import type { Reminder, JournalEntry, Medication, Pet } from '@/types/models';
+import type { Reminder, JournalEntry, Medication, Pet, VaccineRecord } from '@/types/models';
 import { generateInsights, type Insight } from '@/utils/insights';
 import { canonicalizeVaccineName } from '@/utils/vaccineNames';
 import { HealthAlert } from '@/components/HealthAlert';
@@ -40,7 +41,7 @@ export default function PetProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { profile } = useAuth();
-  const { pets } = useData();
+  const { pets, reminders: allReminders } = useData();
   const pet = usePet(id);
   const entries = useEntriesForPet(id);
   const reminders = useRemindersForPet(id);
@@ -50,7 +51,7 @@ export default function PetProfileScreen() {
   const { check } = useGate();
 
   const [tab, setTab] = useState<Tab>('timeline');
-  // Count of overdue (not-completed) reminders — powers the HealthAlert
+  // Count of overdue (not-completed) reminders. Powers the HealthAlert
   // banner shown below the hero.
   const overdueCount = reminders.filter(
     r => !r.isCompleted && new Date(r.dueDate).getTime() < Date.now(),
@@ -140,7 +141,7 @@ export default function PetProfileScreen() {
     }
   };
 
-  // Share menu — vet-ready health summary OR pet-sitter routine guide.
+  // Share menu: vet-ready health summary OR pet-sitter routine guide.
   const handleExport = () => {
     const options = ['Vet health summary', 'Pet sitter guide', 'Cancel'];
     const cancelIndex = options.length - 1;
@@ -176,6 +177,13 @@ export default function PetProfileScreen() {
             style={styles.iconBtn}
           >
             <Ionicons name="stats-chart-outline" size={22} color={colors.text} />
+          </Pressable>
+          <Pressable
+            onPress={() => router.push({ pathname: '/pet/share/[id]', params: { id: pet.id } })}
+            hitSlop={10}
+            style={styles.iconBtn}
+          >
+            <Ionicons name="people-outline" size={22} color={colors.text} />
           </Pressable>
           <Pressable onPress={handleExport} hitSlop={10} style={styles.iconBtn}>
             <Ionicons name="share-outline" size={22} color={colors.text} />
@@ -237,7 +245,7 @@ export default function PetProfileScreen() {
         </View>
 
         {tab === 'timeline' && (
-          <TimelineTab entries={entries} pet={pet} onAdd={pickLogKind} onDeleteEntry={async (id) => {
+          <TimelineTab entries={entries} pet={pet} distanceUnit={resolveDistanceUnit(profile?.distanceUnit)} onAdd={pickLogKind} onDeleteEntry={async (id) => {
             if (!profile) return;
             await deleteEntry(profile.id, id);
           }} />
@@ -247,26 +255,55 @@ export default function PetProfileScreen() {
           <CareTab
             reminders={reminders}
             medications={medications}
+            vaccines={vaccines}
             petId={pet.id}
             pet={pet}
             entries={entries}
             onMarkDone={(r) => {
               if (!profile) return;
+              const name = getReminderName(r);
               const isRecurring = r.repeatType !== 'none';
+              // Group-aware label: a multi-pet reminder reads as "for
+              // Yahzi, Moqui, and Lovie" so the user knows tapping
+              // mark-done completes every pet at once. Pet profile
+              // can't reach other pets' reminder docs directly; the
+              // `allReminders` list from useData lets the helper find
+              // them.
+              const group = findGroupForReminder(r, allReminders);
+              const groupPets = group.petIds
+                .map(pid => pets.find(p => p.id === pid))
+                .filter((p): p is NonNullable<typeof p> => !!p);
+              const forPhrase = group.isGrouped
+                ? (() => {
+                    if (groupPets.length === 2) return ` for ${groupPets[0].name} and ${groupPets[1].name}`;
+                    return ` for ${groupPets.slice(0, -1).map(p => p.name).join(', ')}, and ${groupPets[groupPets.length - 1].name}`;
+                  })()
+                : ` for ${pet.name}`;
               Alert.alert(
                 'Mark done?',
                 isRecurring
-                  ? `Complete "${r.title}" for ${pet.name}. Next due date will be scheduled.`
-                  : `Complete "${r.title}" for ${pet.name}. This reminder will be marked complete.`,
+                  ? `Complete "${name}"${forPhrase}. Next due date will be scheduled.`
+                  : `Complete "${name}"${forPhrase}. This reminder will be marked complete.`,
                 [
                   { text: 'Cancel', style: 'cancel' },
-                  { text: isRecurring ? 'Mark done' : 'Complete', onPress: () => markDone(profile.id, r) },
+                  {
+                    text: isRecurring ? 'Mark done' : 'Complete',
+                    onPress: () =>
+                      markReminderDone({
+                        uid: profile.id,
+                        reminder: r,
+                        allReminders,
+                        allPets: pets,
+                        actorName: profile.displayName ?? null,
+                      }),
+                  },
                 ],
               );
             }}
             onAddReminder={() => router.push({ pathname: '/reminder/add', params: { petId: pet.id } })}
             onAddMedication={() => router.push({ pathname: '/medication/add', params: { petId: pet.id } })}
             onOpenMedication={(medId) => router.push({ pathname: '/medication/[id]', params: { id: medId } })}
+            onAddRoutine={() => router.push({ pathname: '/routines/[petId]', params: { petId: pet.id } })}
           />
         )}
 
@@ -304,25 +341,6 @@ export default function PetProfileScreen() {
   );
 }
 
-async function markDone(uid: string, r: Reminder) {
-  await cancelReminder(r.notificationId);
-  const next = computeNextDueDate(new Date(r.dueDate), r.repeatType, r.repeatInterval);
-  if (next) {
-    const newId = await scheduleReminder(r.title, r.notes ?? 'Reminder', next);
-    await updateReminder(uid, r.id, {
-      dueDate: next.toISOString(),
-      nextDueDate: next.toISOString(),
-      lastCompletedAt: new Date().toISOString(),
-      notificationId: newId,
-    });
-  } else {
-    await updateReminder(uid, r.id, {
-      isCompleted: true,
-      lastCompletedAt: new Date().toISOString(),
-      notificationId: null,
-    });
-  }
-}
 
 function ActionBtn({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
   return (
@@ -383,9 +401,10 @@ function MedicationRow({ medication, onPress }: { medication: Medication; onPres
   );
 }
 
-function TimelineTab({ entries, pet, onAdd, onDeleteEntry }: {
+function TimelineTab({ entries, pet, distanceUnit, onAdd, onDeleteEntry }: {
   entries: JournalEntry[];
   pet: ReturnType<typeof usePet>;
+  distanceUnit: DistanceUnit;
   onAdd: () => void;
   onDeleteEntry: (id: string) => void;
 }) {
@@ -425,7 +444,7 @@ function TimelineTab({ entries, pet, onAdd, onDeleteEntry }: {
                     ])
                   }
                 >
-                  <TimelineRow entry={e} pet={pet} />
+                  <TimelineRow entry={e} pet={pet} distanceUnit={distanceUnit} />
                 </Pressable>
               </View>
             ))}
@@ -436,9 +455,10 @@ function TimelineTab({ entries, pet, onAdd, onDeleteEntry }: {
   );
 }
 
-function CareTab({ reminders, medications, petId, pet, entries, onMarkDone, onAddReminder, onAddMedication, onOpenMedication }: {
+function CareTab({ reminders, medications, vaccines, petId, pet, entries, onMarkDone, onAddReminder, onAddMedication, onOpenMedication, onAddRoutine }: {
   reminders: Reminder[];
   medications: Medication[];
+  vaccines: VaccineRecord[];
   petId: string;
   pet: Pet;
   entries: JournalEntry[];
@@ -446,11 +466,12 @@ function CareTab({ reminders, medications, petId, pet, entries, onMarkDone, onAd
   onAddReminder: () => void;
   onAddMedication: () => void;
   onOpenMedication: (medId: string) => void;
+  onAddRoutine: () => void;
 }) {
   const active = reminders.filter(r => !r.isCompleted).sort((a, b) => +new Date(a.dueDate) - +new Date(b.dueDate));
   const others = active.filter(r => r.type !== 'medication');
   const activeMeds = medications.filter(m => m.isActive);
-  const insights = generateInsights(pet, entries);
+  const insights = generateInsights(pet, entries, vaccines, reminders);
 
   return (
     <View style={{ gap: spacing.lg, paddingHorizontal: spacing.base }}>
@@ -495,6 +516,12 @@ function CareTab({ reminders, medications, petId, pet, entries, onMarkDone, onAd
       </View>
 
       <PrimaryButton title="Add reminder" icon="add" variant="secondary" onPress={onAddReminder} />
+      <PrimaryButton
+        title="Add a routine"
+        icon="star-outline"
+        variant="ghost"
+        onPress={onAddRoutine}
+      />
     </View>
   );
 }
@@ -674,6 +701,8 @@ function InfoTab({ pet, onDelete }: { pet: any; onDelete: () => void }) {
         ))}
       </View>
 
+      <CareInstructionsCard pet={pet} />
+
       <Pressable onPress={goEdit} style={({ pressed }) => [styles.recordCard, pressed && { opacity: 0.9 }]}>
         <Text style={styles.infoLabel}>Notes</Text>
         <Text style={[styles.infoValue, { marginTop: 4, color: pet.notes ? colors.text : colors.textFaint }]}>
@@ -693,6 +722,53 @@ function InfoTab({ pet, onDelete }: { pet: any; onDelete: () => void }) {
 
       <PrimaryButton title={`Delete ${pet.name}`} variant="danger" icon="trash-outline" onPress={onDelete} />
     </View>
+  );
+}
+
+// Summary card for the Care Instructions screen. Shows a quick count
+// of how many fields are filled in plus a teaser line. Tapping opens
+// the dedicated editor at /pet/care/[id].
+function CareInstructionsCard({ pet }: { pet: any }) {
+  const router = useRouter();
+  const fields = [
+    pet.feedingInstructions,
+    pet.walkRoutine,
+    pet.behaviorNotes,
+    pet.boardingInstructions,
+    pet.favoriteThings,
+    pet.allergies,
+  ];
+  const filled = fields.filter(Boolean).length;
+  const teaser =
+    pet.feedingInstructions ||
+    pet.walkRoutine ||
+    pet.behaviorNotes ||
+    pet.boardingInstructions ||
+    null;
+  return (
+    <Pressable
+      onPress={() => router.push({ pathname: '/pet/care/[id]', params: { id: pet.id } })}
+      style={({ pressed }) => [styles.recordCard, pressed && { opacity: 0.9 }]}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <View style={{
+          width: 32, height: 32, borderRadius: 10,
+          backgroundColor: colors.primarySoft,
+          alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Ionicons name="reader-outline" size={16} color={colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.infoLabel}>Care instructions</Text>
+          <Text style={[styles.infoValue, { marginTop: 2, color: filled > 0 ? colors.text : colors.textFaint }]} numberOfLines={2}>
+            {filled === 0
+              ? 'Tap to add feeding, walks, behavior, allergies, and sitter notes'
+              : teaser ?? `${filled} of 6 sections filled`}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+      </View>
+    </Pressable>
   );
 }
 

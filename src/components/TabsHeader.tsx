@@ -14,18 +14,18 @@ import { useRouter } from 'expo-router';
 import { useData } from '@/hooks/useData';
 import { colors, fonts, radius, spacing } from '@/theme';
 
-// The app icon — bundled at build time so it renders instantly without
+// The app icon, bundled at build time so it renders instantly without
 // hitting the asset cache and matches what the user sees on their home screen.
 const APP_ICON = require('../../assets/icon.png');
 
 /**
  * Persistent header that sits at the top of every tab screen. Left side
  * carries the brand identity (paw + PawProof wordmark) so the user always
- * knows where they are; right side carries the two cross-cutting shortcuts:
- * Emergency card and Settings/profile.
+ * knows where they are; right side carries the Emergency card shortcut.
+ * Settings now lives in the bottom tab bar, so no profile icon up here.
  *
- * Self-contained — pulls pets from useData() and routes to /pet/emergency
- * or /settings on its own, so callers just drop it in.
+ * Just drop it in: pulls pets from useData() and routes to /pet/emergency
+ * on its own, so callers just drop it in.
  */
 export function TabsHeader() {
   const router = useRouter();
@@ -34,7 +34,7 @@ export function TabsHeader() {
   // Emergency button visual: stays subdued (outlined) until the user has
   // actually entered emergency contact info on at least one pet. Once
   // there's something to show in the emergency card, the pill switches
-  // to the filled red treatment — turning the badge into a payoff rather
+  // to the filled red treatment, turning the badge into a payoff rather
   // than a permanent attention-grabber.
   const hasEmergencyInfo = pets.some(
     p => (p.emergencyContactName && p.emergencyContactPhone) || p.vetPhone,
@@ -97,9 +97,6 @@ export function TabsHeader() {
             <Text style={styles.emergencyBtnText}>Emergency</Text>
           </Pressable>
         ) : null}
-        <Pressable onPress={() => router.push('/settings')} hitSlop={10} style={styles.profileBtn}>
-          <Ionicons name="person-circle-outline" size={28} color={colors.text} />
-        </Pressable>
       </View>
     </View>
   );
@@ -117,7 +114,7 @@ const styles = StyleSheet.create({
   brand: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   brandIcon: {
     // 28×28 keeps the brand recognizable without stealing vertical space
-    // from the screen content below — important on smaller phones.
+    // from the screen content below, important on smaller phones.
     width: 28,
     height: 28,
     borderRadius: 7,
@@ -138,13 +135,13 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
   },
-  // Filled — only when the user has set up emergency contact info, so the
+  // Filled: only when the user has set up emergency contact info, so the
   // colour pays off real data instead of always shouting.
   emergencyBtnFilled: {
     backgroundColor: colors.dangerSoft,
     borderColor: colors.dangerSoft,
   },
-  // Outlined default — same shape and tap target, much quieter visual
+  // Outlined default: same shape and tap target, much quieter visual
   // weight when there's no emergency info to show yet.
   emergencyBtnOutlined: {
     backgroundColor: 'transparent',
@@ -156,5 +153,4 @@ const styles = StyleSheet.create({
     color: colors.danger,
     letterSpacing: 0.1,
   },
-  profileBtn: { padding: 2 },
 });

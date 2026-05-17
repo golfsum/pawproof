@@ -5,19 +5,38 @@ import { FormField } from '@/components/FormField';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Chip } from '@/components/Chip';
 import { DateField } from '@/components/DateField';
-import { PetPicker } from '@/components/PetPicker';
+import { MultiPetPicker } from '@/components/MultiPetPicker';
 import { useAuth } from '@/hooks/AuthProvider';
 import { useData } from '@/hooks/useData';
 import { useGate } from '@/hooks/useGate';
 import { createReminder } from '@/lib/firestore';
-import { scheduleReminder } from '@/lib/notifications';
+import { scheduleGroupedReminder, scheduleReminderForPet } from '@/lib/notifications';
 import { colors, spacing } from '@/theme';
-import { REMINDER_META } from '@/utils/petIcon';
-import type { ReminderType, RepeatType } from '@/types/models';
+import {
+  REMINDER_CATEGORY_CONFIG,
+  DEFAULT_REPEAT_BY_CATEGORY,
+  categoryToLegacyType,
+  getReminderDefaultName,
+  getReminderNamePlaceholder,
+  type ReminderCategory,
+} from '@/utils/reminderCategory';
+import { newReminderGroupId } from '@/utils/reminderGroups';
+import type { RepeatType } from '@/types/models';
 
-const REMINDER_TYPES: ReminderType[] = [
-  'feeding', 'medication', 'walking', 'vet_visit', 'vaccination',
-  'grooming', 'flea_tick', 'heartworm', 'nail_trim', 'custom',
+// Visible order for the Category chip row. Feeding leads because it's
+// the most common entry point (set up "Dinner" first thing after
+// adding a pet), then walks, then meds, then everything else.
+const CATEGORY_ORDER: ReminderCategory[] = [
+  'feeding',
+  'walk',
+  'medication',
+  'vet_visit',
+  'vaccination',
+  'grooming',
+  'flea_tick',
+  'heartworm',
+  'nail_trim',
+  'general',
 ];
 
 const ALL_REPEAT_OPTIONS: { label: string; value: RepeatType }[] = [
@@ -29,48 +48,20 @@ const ALL_REPEAT_OPTIONS: { label: string; value: RepeatType }[] = [
   { label: 'Custom', value: 'custom_days' },
 ];
 
-/** Which repeat chips to show for each reminder type. Tailoring the option
+/** Which repeat chips to show for each category. Tailoring the option
  *  set keeps the form focused: a vaccine reminder doesn't need a "Daily"
  *  chip, and a feeding reminder doesn't need "Yearly". */
-const REPEAT_OPTIONS_BY_TYPE: Record<ReminderType, RepeatType[]> = {
+const REPEAT_OPTIONS_BY_CATEGORY: Record<ReminderCategory, RepeatType[]> = {
   feeding:     ['daily', 'weekly', 'custom_days'],
-  walking:     ['daily', 'weekly', 'custom_days'],
+  walk:        ['daily', 'weekly', 'custom_days'],
   medication:  ['daily', 'weekly', 'monthly', 'custom_days'],
   vet_visit:   ['none', 'yearly'],
-  vaccination: ['none', 'yearly', 'custom_days'],   // none = one-time renewal
+  vaccination: ['none', 'yearly', 'custom_days'],
   grooming:    ['monthly', 'weekly', 'custom_days'],
   flea_tick:   ['monthly'],
   heartworm:   ['monthly', 'yearly'],
   nail_trim:   ['weekly', 'monthly', 'custom_days'],
-  custom:      ['none', 'daily', 'weekly', 'monthly', 'yearly', 'custom_days'],
-};
-
-/** Sensible default repeat for each reminder type. */
-const DEFAULT_REPEAT_BY_TYPE: Record<ReminderType, RepeatType> = {
-  feeding: 'daily',
-  walking: 'daily',
-  medication: 'daily',
-  vet_visit: 'none',
-  vaccination: 'none',
-  grooming: 'monthly',
-  flea_tick: 'monthly',
-  heartworm: 'monthly',
-  nail_trim: 'monthly',
-  custom: 'none',
-};
-
-/** Per-type placeholder for the Title field. */
-const TITLE_PLACEHOLDER_BY_TYPE: Record<ReminderType, string> = {
-  feeding: 'e.g. Breakfast',
-  walking: 'e.g. Morning walk',
-  medication: 'e.g. Apoquel',
-  vet_visit: 'e.g. Annual checkup',
-  vaccination: 'e.g. Rabies vaccine',
-  grooming: 'e.g. Bath & nails',
-  flea_tick: 'e.g. NexGard',
-  heartworm: 'e.g. Heartgard',
-  nail_trim: 'e.g. Nail trim',
-  custom: 'Name this reminder',
+  general:     ['none', 'daily', 'weekly', 'monthly', 'yearly', 'custom_days'],
 };
 
 export default function AddReminderScreen() {
@@ -80,65 +71,123 @@ export default function AddReminderScreen() {
   const { pets } = useData();
   const { check, isPremium } = useGate();
 
-  const [petId, setPetId] = useState<string | null>(params.petId ?? pets[0]?.id ?? null);
-  const [type, setType] = useState<ReminderType>('feeding');
-  const [title, setTitle] = useState('');
+  // Multi-pet selection. Defaults to either the petId in the URL (when
+  // launched from a specific pet profile) or the first pet. Multi-pet
+  // households still start with single selection so the user makes a
+  // conscious "everyone" decision; defaulting to all would create
+  // unexpected duplicate reminders.
+  const [selectedPetIds, setSelectedPetIds] = useState<Set<string>>(() => {
+    if (params.petId) return new Set([params.petId]);
+    if (pets.length === 1) return new Set([pets[0].id]);
+    return new Set(pets[0] ? [pets[0].id] : []);
+  });
+  const [category, setCategory] = useState<ReminderCategory>('feeding');
+  const [reminderName, setReminderName] = useState('');
   const [notes, setNotes] = useState('');
   const [dueDate, setDueDate] = useState<Date>(new Date(Date.now() + 60 * 60 * 1000));
-  const [repeat, setRepeat] = useState<RepeatType>(DEFAULT_REPEAT_BY_TYPE.feeding);
+  const [repeat, setRepeat] = useState<RepeatType>(DEFAULT_REPEAT_BY_CATEGORY.feeding);
   const [repeatInterval, setRepeatInterval] = useState('3');
   const [saving, setSaving] = useState(false);
 
-  const titleHint = useMemo(() => (REMINDER_META[type]?.label ?? 'Reminder'), [type]);
-  const titlePlaceholder = TITLE_PLACEHOLDER_BY_TYPE[type] ?? `e.g. ${titleHint}`;
+  // Track whether the user manually edited the repeat — if so we
+  // don't snap it back to the category default when the category
+  // changes. Same pattern as the name field below.
+  const userTouchedRepeat = useRef(false);
+  const userTouchedName = useRef(false);
 
-  // Only show the repeat chips that make sense for this type.
+  const config = REMINDER_CATEGORY_CONFIG[category];
+  const namePlaceholder = useMemo(() => getReminderNamePlaceholder(category), [category]);
+  const defaultName = useMemo(() => getReminderDefaultName(category), [category]);
+
+  // Only show the repeat chips that make sense for this category.
   const repeatOptions = useMemo(
-    () => ALL_REPEAT_OPTIONS.filter(o => REPEAT_OPTIONS_BY_TYPE[type].includes(o.value)),
-    [type],
+    () => ALL_REPEAT_OPTIONS.filter(o => REPEAT_OPTIONS_BY_CATEGORY[category].includes(o.value)),
+    [category],
   );
 
-  // When the user changes type, snap repeat to the type's default — unless
-  // they already manually picked a value that's still valid for the new type.
-  const userTouchedRepeat = useRef(false);
+  // When the user changes category, snap repeat to the category default
+  // unless they've already manually edited it. If the previous repeat
+  // isn't valid for the new category, force it back to the default
+  // regardless so we never show a stale selection.
   useEffect(() => {
-    const allowed = REPEAT_OPTIONS_BY_TYPE[type];
+    const allowed = REPEAT_OPTIONS_BY_CATEGORY[category];
     if (!allowed.includes(repeat)) {
-      setRepeat(DEFAULT_REPEAT_BY_TYPE[type]);
+      setRepeat(DEFAULT_REPEAT_BY_CATEGORY[category]);
       userTouchedRepeat.current = false;
     } else if (!userTouchedRepeat.current) {
-      setRepeat(DEFAULT_REPEAT_BY_TYPE[type]);
+      setRepeat(DEFAULT_REPEAT_BY_CATEGORY[category]);
     }
-  }, [type]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [category]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSave = async () => {
-    if (!user || !petId) {
-      Alert.alert('Pick a pet', 'Choose which pet this reminder is for.');
-      return;
-    }
-    if (!title.trim()) {
-      Alert.alert('Add a title', `Name this reminder — e.g. "${titleHint}".`);
+    if (!user || selectedPetIds.size === 0) {
+      Alert.alert('Pick a pet', 'Choose at least one pet for this reminder.');
       return;
     }
     if (repeat === 'custom_days' && !isPremium) {
       if (!check('advanced_recurring')) return;
     }
 
+    // Name is optional — if the user didn't type one, use the category
+    // default ("Walk reminder") so the lock screen has something to
+    // show. Most users will type something, but the form shouldn't
+    // block them on a field whose absence has a sensible fallback.
+    const finalName = reminderName.trim() || defaultName;
+    const legacyType = categoryToLegacyType(category);
+
     setSaving(true);
     try {
-      const notifId = await scheduleReminder(title.trim(), notes.trim() || titleHint, dueDate);
-      await createReminder(user.uid, {
-        petId,
-        type,
-        title: title.trim(),
-        notes: notes.trim() || undefined,
-        dueDate: dueDate.toISOString(),
-        repeatType: repeat,
-        repeatInterval: repeat === 'custom_days' ? Math.max(1, Number(repeatInterval) || 1) : null,
-        isCompleted: false,
-        nextDueDate: dueDate.toISOString(),
-        notificationId: notifId,
-      });
+      const selectedPets = pets.filter(p => selectedPetIds.has(p.id));
+
+      // One notification fires for the whole group when the user picks
+      // multiple pets, matching the expected "Dinner is due for Moqui,
+      // Yahzi, and Lovie" experience. Single-pet selection flows
+      // through the per-pet helper for the standard body wording.
+      let sharedNotifId: string | null = null;
+      if (selectedPets.length === 1) {
+        sharedNotifId = await scheduleReminderForPet({
+          pet: selectedPets[0],
+          reminderType: legacyType,
+          reminderTitle: finalName,
+          when: dueDate,
+        });
+      } else if (selectedPets.length > 1) {
+        sharedNotifId = await scheduleGroupedReminder({
+          petNames: selectedPets.map(p => p.name),
+          reminderType: legacyType,
+          reminderTitle: finalName,
+          when: dueDate,
+        });
+      }
+
+      // Each pet gets its own reminder doc. The shared `groupId`
+      // (only set for 2+ pets) lets the UI collapse them into one row
+      // and lets "Mark done" complete every pet in a single tap. The
+      // notificationId is also shared so cancel-on-edit/delete reaches
+      // every doc.
+      //
+      // We write BOTH the new canonical fields (`category`, `name`,
+      // `groupId`) AND the legacy fields (`type`, `title`) so old
+      // readers (the web dashboard, older app builds) keep working
+      // without a migration.
+      const groupId = selectedPets.length > 1 ? newReminderGroupId() : undefined;
+      for (const pet of selectedPets) {
+        await createReminder(user.uid, {
+          petId: pet.id,
+          type: legacyType,
+          category,
+          title: finalName,
+          name: finalName,
+          notes: notes.trim() || undefined,
+          dueDate: dueDate.toISOString(),
+          repeatType: repeat,
+          repeatInterval: repeat === 'custom_days' ? Math.max(1, Number(repeatInterval) || 1) : null,
+          isCompleted: false,
+          nextDueDate: dueDate.toISOString(),
+          notificationId: sharedNotifId,
+          ...(groupId ? { groupId } : {}),
+        });
+      }
       router.back();
     } catch (e: any) {
       Alert.alert('Could not save', e?.message ?? 'Try again.');
@@ -154,29 +203,43 @@ export default function AddReminderScreen() {
     >
       <Stack.Screen options={{ title: 'New reminder' }} />
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <PetPicker pets={pets} selectedId={petId} onSelect={setPetId} />
+        <MultiPetPicker
+          pets={pets}
+          selectedIds={selectedPetIds}
+          onChange={setSelectedPetIds}
+        />
 
         <View style={{ gap: 8 }}>
-          <Text style={styles.label}>Type</Text>
+          <Text style={styles.label}>Category</Text>
           <View style={styles.chipRow}>
-            {REMINDER_TYPES.map(t => (
-              <Chip
-                key={t}
-                label={REMINDER_META[t].label}
-                icon={REMINDER_META[t].icon as any}
-                selected={type === t}
-                onPress={() => setType(t)}
-              />
-            ))}
+            {CATEGORY_ORDER.map(c => {
+              const cfg = REMINDER_CATEGORY_CONFIG[c];
+              return (
+                <Chip
+                  key={c}
+                  label={cfg.label}
+                  icon={cfg.icon as any}
+                  selected={category === c}
+                  onPress={() => setCategory(c)}
+                />
+              );
+            })}
           </View>
         </View>
 
         <FormField
-          label="Title"
-          value={title}
-          onChangeText={setTitle}
-          required
-          placeholder={titlePlaceholder}
+          label="Reminder name"
+          value={reminderName}
+          onChangeText={(v: string) => {
+            userTouchedName.current = true;
+            setReminderName(v);
+          }}
+          placeholder={namePlaceholder}
+          hint={
+            !reminderName.trim()
+              ? `Leave blank and we'll save it as "${defaultName}".`
+              : undefined
+          }
         />
 
         <DateField label="Date & time" value={dueDate} onChange={d => d && setDueDate(d)} mode="datetime" />

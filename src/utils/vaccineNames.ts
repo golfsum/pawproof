@@ -1,6 +1,6 @@
 // Canonical vaccine name normalization.
 //
-// Vet docs are inconsistent — one clinic writes "Parvo Annual", another
+// Vet docs are inconsistent: one clinic writes "Parvo Annual", another
 // "DA2PP", another "5-in-1". They're all the same combination dog vaccine
 // (DHPP). This module maps any common alias to its canonical short form
 // (used for display) and to a canonical key (used for dedup matching).
@@ -13,7 +13,7 @@
  * Add new clinic-specific names here without changing call sites.
  */
 const VACCINE_ALIASES: Record<string, string> = {
-  // DHPP family — the dog combo (Distemper, Adenovirus/Hepatitis, Parainfluenza, Parvo)
+  // DHPP family: the dog combo (Distemper, Adenovirus/Hepatitis, Parainfluenza, Parvo)
   'dhpp': 'dhpp',
   'da2pp': 'dhpp',
   'dapp': 'dhpp',
@@ -40,7 +40,7 @@ const VACCINE_ALIASES: Record<string, string> = {
   'distemper combo': 'dhpp',
   'puppy combo': 'dhpp',
 
-  // FVRCP family — the cat combo (Rhinotracheitis, Calici, Panleukopenia)
+  // FVRCP family: the cat combo (Rhinotracheitis, Calici, Panleukopenia)
   'fvrcp': 'fvrcp',
   'feline distemper': 'fvrcp',
   'feline combo': 'fvrcp',
@@ -132,7 +132,7 @@ const CANONICAL_DISPLAY: Record<string, string> = {
   'rattlesnake': 'Rattlesnake',
 };
 
-/** Strip common qualifiers that don't change identity — annual, 1-year, etc. */
+/** Strip common qualifiers that don't change identity (annual, 1-year, etc.). */
 function stripQualifiers(s: string): string {
   return s
     .replace(/\b(annual|yearly|booster|adult|puppy|kitten|adultvax)\b/gi, '')

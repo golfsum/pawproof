@@ -6,6 +6,7 @@ import {
   watchVaccines,
   watchDocuments,
   watchMedications,
+  watchSharesReceived,
 } from '@/lib/firestore';
 import { useAuth } from './AuthProvider';
 import type {
@@ -15,7 +16,9 @@ import type {
   VaccineRecord,
   PetDocument,
   Medication,
+  PetShare,
 } from '@/types/models';
+import { entryCoversPet } from '@/types/models';
 
 interface DataContextValue {
   pets: Pet[];
@@ -24,6 +27,11 @@ interface DataContextValue {
   vaccines: VaccineRecord[];
   documents: PetDocument[];
   medications: Medication[];
+  // Pets shared WITH this user (they're a caregiver / view-only).
+  // The full pet docs live under the owner's /users/{ownerUid}/pets
+  // subtree. Reading them from this side requires a Firestore rule
+  // update; until then this surfaces invite metadata only.
+  receivedShares: PetShare[];
   loading: boolean;
 }
 
@@ -37,6 +45,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [vaccines, setVaccines] = useState<VaccineRecord[]>([]);
   const [documents, setDocuments] = useState<PetDocument[]>([]);
   const [medications, setMedications] = useState<Medication[]>([]);
+  const [receivedShares, setReceivedShares] = useState<PetShare[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -47,6 +56,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setVaccines([]);
       setDocuments([]);
       setMedications([]);
+      setReceivedShares([]);
       setLoading(false);
       return;
     }
@@ -64,13 +74,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       watchVaccines(user.uid, v => { setVaccines(v); tick(); }),
       watchDocuments(user.uid, d => { setDocuments(d); tick(); }),
       watchMedications(user.uid, m => { setMedications(m); tick(); }),
+      // Doesn't count toward the loading target — shares are
+      // supplementary and shouldn't block the initial render.
+      watchSharesReceived(user.uid, setReceivedShares),
     ];
     return () => unsubs.forEach(u => u && u());
   }, [user?.uid]);
 
   const value = useMemo<DataContextValue>(
-    () => ({ pets, entries, reminders, vaccines, documents, medications, loading }),
-    [pets, entries, reminders, vaccines, documents, medications, loading],
+    () => ({ pets, entries, reminders, vaccines, documents, medications, receivedShares, loading }),
+    [pets, entries, reminders, vaccines, documents, medications, receivedShares, loading],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
@@ -89,7 +102,7 @@ export function usePet(petId: string | undefined): Pet | undefined {
 
 export function useEntriesForPet(petId: string): JournalEntry[] {
   const { entries } = useData();
-  return useMemo(() => entries.filter(e => e.petId === petId), [entries, petId]);
+  return useMemo(() => entries.filter(e => entryCoversPet(e, petId)), [entries, petId]);
 }
 
 export function useRemindersForPet(petId: string): Reminder[] {

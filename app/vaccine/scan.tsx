@@ -13,7 +13,7 @@ import { useData } from '@/hooks/useData';
 import { extractVaccineInfo, OcrExtractedFields } from '@/lib/gemini';
 import { uploadCompressedPhoto } from '@/lib/storage';
 import { createDocument, createVaccine, createReminder } from '@/lib/firestore';
-import { scheduleReminder } from '@/lib/notifications';
+import { scheduleVaccineExpirationReminder } from '@/lib/notifications';
 import { colors, radius, spacing, typography } from '@/theme';
 import { toDate } from '@/utils/dates';
 
@@ -22,8 +22,9 @@ type Stage = 'capture' | 'scanning' | 'confirm';
 export default function ScanVaccineScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ petId?: string }>();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { pets } = useData();
+  const warnDays = profile?.notificationPrefs?.vaccineWarnDays ?? 14;
 
   const [stage, setStage] = useState<Stage>('capture');
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -119,11 +120,13 @@ export default function ScanVaccineScreen() {
       if (expirationDate) {
         const remindAt = new Date(expirationDate.getTime() - 14 * 24 * 60 * 60 * 1000);
         const fireAt = remindAt.getTime() > Date.now() ? remindAt : expirationDate;
-        const notifId = await scheduleReminder(
-          `${vaccineName.trim()} expires soon`,
-          `Renew before ${expirationDate.toDateString()}`,
-          fireAt,
-        );
+        const pet = pets.find(p => p.id === petId) ?? null;
+        const notifId = await scheduleVaccineExpirationReminder({
+          pet,
+          vaccineName: vaccineName.trim(),
+          expiresAt: expirationDate,
+          daysBefore: warnDays,
+        });
         reminderId = await createReminder(user.uid, {
           petId,
           type: 'vaccination',
@@ -167,7 +170,7 @@ export default function ScanVaccineScreen() {
         </View>
         <Text style={typography.h2}>Scan a vaccine record</Text>
         <Text style={[typography.body, { textAlign: 'center', color: colors.textMuted, marginBottom: spacing.lg, maxWidth: 320 }]}>
-          Capture or upload a photo of a rabies tag, vaccine certificate, or vet record. We use Gemini to extract the details — you'll confirm before anything is saved.
+          Capture or upload a photo of a rabies tag, vaccine certificate, or vet record. We use Gemini to extract the details. You'll confirm before anything is saved.
         </Text>
         <PrimaryButton title="Take photo" icon="camera-outline" onPress={() => pickImage('camera')} />
         <PrimaryButton title="Choose from library" icon="image-outline" variant="secondary" onPress={() => pickImage('library')} style={{ marginTop: spacing.sm }} />

@@ -8,7 +8,7 @@ import { colors, fonts } from '@/theme';
  * the PawProof wordmark. Holds until the host says it's ready, then fades
  * itself out. Rendered as an overlay on top of everything.
  *
- * Uses the React Native Animated API (not Reanimated) — these are short,
+ * Uses the React Native Animated API (not Reanimated). These are short,
  * cheap transform/opacity tweens that drive on the native side via
  * useNativeDriver, no worklet plumbing needed.
  */
@@ -16,7 +16,7 @@ import { colors, fonts } from '@/theme';
 const PAW_COUNT = 4;
 const PAW_OFFSET_X = 38;   // horizontal stagger between left and right paws
 const PAW_GAP_Y = -4;      // tighten the vertical spacing (the paw glyph has slack)
-const PAW_TILT = 24;       // tilt left paws -24°, right paws +24° — "walking forward"
+const PAW_TILT = 24;       // tilt left paws -24°, right paws +24° for "walking forward"
 
 interface Props {
   /** True once the app is ready to be revealed (auth resolved, etc). */

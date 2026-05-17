@@ -3,30 +3,56 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '@/theme';
 import { fmtRelative, isOverdue } from '@/utils/dates';
-import { REMINDER_META } from '@/utils/petIcon';
 import { describeRepeat } from '@/utils/recurrence';
 import { canonicalizeReminderTitle } from '@/utils/vaccineNames';
 import { fmtDate } from '@/utils/dates';
+import {
+  getReminderCategory,
+  getReminderConfig,
+  getReminderName,
+} from '@/utils/reminderCategory';
 import { PetAvatar } from './PetAvatar';
 import type { Pet, Reminder } from '@/types/models';
 
 interface Props {
   reminder: Reminder;
   pet?: Pet;
+  /**
+   * Other pets covered by the same multi-pet reminder group (excludes
+   * the primary `pet` rendered above). When set, the card surfaces an
+   * "Also for: …" line so the user knows tapping Mark done will
+   * complete every pet in the group, not just this one.
+   */
+  groupPets?: Pet[];
   onMarkDone?: () => void;
   onPress?: () => void;
   onLongPress?: () => void;
 }
 
-export function ReminderCard({ reminder, pet, onMarkDone, onPress, onLongPress }: Props) {
-  const meta = REMINDER_META[reminder.type] ?? REMINDER_META.custom;
+function joinNames(names: string[]): string {
+  if (names.length === 0) return '';
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+}
+
+export function ReminderCard({ reminder, pet, groupPets, onMarkDone, onPress, onLongPress }: Props) {
+  const config = getReminderConfig(reminder);
+  const category = getReminderCategory(reminder);
   const overdue = !reminder.isCompleted && isOverdue(reminder.dueDate);
 
-  // Vaccine reminders aren't "tasks you complete today" — they're upcoming
+  // Vaccine reminders aren't "tasks you complete today"; they're upcoming
   // renewals. A green checkmark next to one reads like "complete this
   // vaccine now," which is misleading. Show a chevron instead, and let the
   // user open the pet profile (or long-press to delete).
-  const isInformational = reminder.type === 'vaccination';
+  const isInformational = category === 'vaccination';
+
+  // Vaccine reminders use "Expired" (matches vaccine-record vocabulary);
+  // every other category uses "Overdue".
+  const overdueLabel = isInformational ? 'EXPIRED' : 'OVERDUE';
+
+  const rawName = getReminderName(reminder);
+  const displayName = isInformational ? canonicalizeReminderTitle(rawName) : rawName;
 
   return (
     <Pressable
@@ -34,22 +60,17 @@ export function ReminderCard({ reminder, pet, onMarkDone, onPress, onLongPress }
       onLongPress={onLongPress}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
-      <View style={[styles.iconWrap, { backgroundColor: meta.tint + '22' }]}>
-        <Ionicons name={meta.icon as any} size={20} color={meta.tint} />
+      <View style={[styles.iconWrap, { backgroundColor: config.tint + '22' }]}>
+        <Ionicons name={config.icon as any} size={20} color={config.tint} />
       </View>
       <View style={styles.body}>
         <View style={styles.titleRow}>
           <Text style={styles.title} numberOfLines={1}>
-            {/* Canonicalize "Rabbies vaccine" → "Rabies vaccine" at display
-                time so historical typos render correctly without rewriting
-                stored data. */}
-            {reminder.type === 'vaccination'
-              ? canonicalizeReminderTitle(reminder.title)
-              : reminder.title}
+            {displayName}
           </Text>
           {overdue ? (
             <View style={styles.overdueTag}>
-              <Text style={styles.overdueText}>{reminder.type === 'vaccination' ? 'EXPIRED' : 'OVERDUE'}</Text>
+              <Text style={styles.overdueText}>{overdueLabel}</Text>
             </View>
           ) : null}
         </View>
@@ -57,19 +78,35 @@ export function ReminderCard({ reminder, pet, onMarkDone, onPress, onLongPress }
           {pet ? <PetAvatar pet={pet} size={18} /> : null}
           <Text style={styles.metaText} numberOfLines={1}>
             {pet?.name ? `${pet.name} · ` : ''}
-            {/* Vaccine reminders show only the date — the 9am time is an
+            {/* Vaccine reminders show only the date. The 9am time is an
                 arbitrary scheduling artifact, not a meaningful detail. */}
-            {reminder.type === 'vaccination'
+            {isInformational
               ? fmtDate(reminder.dueDate)
               : fmtRelative(reminder.dueDate)}
             {' · '}{describeRepeat(reminder)}
           </Text>
         </View>
+        {groupPets && groupPets.length > 0 ? (
+          <Text style={styles.groupLine} numberOfLines={1}>
+            Also for {joinNames(groupPets.map(p => p.name))}. Mark done covers all.
+          </Text>
+        ) : null}
       </View>
       {isInformational ? (
-        <View style={styles.chevronWrap}>
-          <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
-        </View>
+        onMarkDone ? (
+          <Pressable
+            onPress={onMarkDone}
+            hitSlop={6}
+            style={({ pressed }) => [styles.renew, pressed && { opacity: 0.85 }]}
+          >
+            <Ionicons name="checkmark" size={14} color="#fff" />
+            <Text style={styles.renewText}>Renew</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.chevronWrap}>
+            <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
+          </View>
+        )
       ) : onMarkDone ? (
         <Pressable
           onPress={onMarkDone}
@@ -109,6 +146,12 @@ const styles = StyleSheet.create({
   title: { fontSize: 15, fontWeight: '600', color: colors.text, flexShrink: 1 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   metaText: { fontSize: 12, color: colors.textMuted, flex: 1 },
+  groupLine: {
+    fontSize: 11,
+    color: colors.primary,
+    fontWeight: '600',
+    marginTop: 2,
+  },
   overdueTag: {
     backgroundColor: colors.dangerSoft,
     paddingHorizontal: 6,
@@ -124,6 +167,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Vaccinations use a labelled pill instead of a green check so the
+  // affordance reads as "log this dose" rather than "task done".
+  renew: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+  },
+  renewText: { color: '#fff', fontSize: 12, fontWeight: '700', letterSpacing: 0.3 },
   chevronWrap: {
     width: 28, height: 28, borderRadius: 14,
     backgroundColor: colors.cardSubtle,

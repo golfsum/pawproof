@@ -4,8 +4,8 @@ import { colors } from './colors';
 /**
  * Type system follows the Warm Companion intent: Quicksand for headings
  * (display) and Plus Jakarta Sans for body. Both load via expo-google-fonts.
- * If a font isn't loaded yet, RN falls back to the system font cleanly —
- * splash holds until fonts are ready so this should never be visible.
+ * If a font isn't loaded yet, RN falls back to the system font cleanly.
+ * Splash holds until fonts are ready so this should never be visible.
  */
 
 export const fonts = {

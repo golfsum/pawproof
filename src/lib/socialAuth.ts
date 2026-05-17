@@ -73,7 +73,7 @@ export async function isAppleAuthAvailable(): Promise<boolean> {
 
 export async function signInWithApple(): Promise<UserCredential> {
   // expo-apple-authentication will throw `ERR_REQUEST_CANCELED` if the user
-  // backs out of the system sheet — we normalise that to SocialAuthCancelled.
+  // backs out of the system sheet, so we normalise that to SocialAuthCancelled.
   try {
     const appleCred = await AppleAuthentication.signInAsync({
       requestedScopes: [

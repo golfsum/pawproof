@@ -84,7 +84,7 @@ export function humanizeAuthError(e: any): string {
   if (code.includes('wrong-password') || code.includes('invalid-credential')) return 'Email or password didn\'t match.';
   if (code.includes('email-already-in-use')) return 'An account with that email already exists.';
   if (code.includes('weak-password')) return 'Use at least 6 characters.';
-  if (code.includes('network')) return 'Network issue — check your connection.';
+  if (code.includes('network')) return 'Network issue. Check your connection.';
   return e?.message ?? 'Something went wrong.';
 }
 

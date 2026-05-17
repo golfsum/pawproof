@@ -22,7 +22,7 @@ import { useData } from '@/hooks/useData';
 import { extractVetInvoiceInfo, InvoiceOcrResult } from '@/lib/gemini';
 import { uploadCompressedPhoto } from '@/lib/storage';
 import { createDocument, createVaccine, createReminder } from '@/lib/firestore';
-import { scheduleReminder } from '@/lib/notifications';
+import { scheduleVaccineExpirationReminder } from '@/lib/notifications';
 import { colors, radius, spacing, typography } from '@/theme';
 import { fmtDate, toDate } from '@/utils/dates';
 
@@ -44,8 +44,9 @@ interface DueSel {
 export default function ScanInvoiceScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ petId?: string }>();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { pets } = useData();
+  const warnDays = profile?.notificationPrefs?.vaccineWarnDays ?? 14;
 
   const [stage, setStage] = useState<Stage>('capture');
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -160,16 +161,16 @@ export default function ScanInvoiceScreen() {
       }
 
       // 3. Schedule reminders for each future vaccine due, 14 days before.
+      const petForNotif = pets.find(p => p.id === petId) ?? null;
       for (const d of selectedDues) {
         const dueAt = toDate(d.dueDate);
         if (!dueAt) continue;
-        const remindAt = new Date(dueAt.getTime() - 14 * 24 * 60 * 60 * 1000);
-        const fireAt = remindAt.getTime() > Date.now() ? remindAt : dueAt;
-        const notifId = await scheduleReminder(
-          `${d.name} vaccine due soon`,
-          `${d.name} is due ${dueAt.toLocaleDateString()}`,
-          fireAt,
-        );
+        const notifId = await scheduleVaccineExpirationReminder({
+          pet: petForNotif,
+          vaccineName: d.name,
+          expiresAt: dueAt,
+          daysBefore: warnDays,
+        });
         await createReminder(user.uid, {
           petId,
           type: 'vaccination',
@@ -242,7 +243,7 @@ export default function ScanInvoiceScreen() {
         <View style={styles.banner}>
           <Ionicons name="information-circle-outline" size={18} color={colors.primaryDark} />
           <Text style={styles.bannerText}>
-            Review the extracted items below. Uncheck anything you don't want saved — nothing is created until you tap Save.
+            Review the extracted items below. Uncheck anything you don't want saved. Nothing is created until you tap Save.
           </Text>
         </View>
 

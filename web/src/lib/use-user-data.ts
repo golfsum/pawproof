@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  Timestamp,
   collection,
   limit,
   onSnapshot,
@@ -21,6 +22,36 @@ import type {
 // Hook that subscribes to the signed-in user's data in the same shape
 // the mobile app uses. One useEffect per collection so unmounts cleanly
 // tear down listeners. Mirrors mobile's useData() provider.
+//
+// Important: Firestore returns Timestamp objects, not strings, for any
+// field stored via serverTimestamp() or new Timestamp(). The mobile
+// app's `fromDoc` normalizes these to ISO strings before they reach
+// the UI; we replicate that here so every consumer (records page,
+// dashboard counters, fmtDate calls) sees a consistent string shape.
+// Without this, d.getTime() blows up on the {seconds, nanoseconds}
+// payload that comes off the wire.
+function normalizeDocData(raw: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (value instanceof Timestamp) {
+      out[key] = value.toDate().toISOString();
+    } else if (
+      // Duck-type fallback for serialized Timestamp shapes that can
+      // slip past the `instanceof` check across SDK versions.
+      value &&
+      typeof value === "object" &&
+      "seconds" in value &&
+      "nanoseconds" in value &&
+      typeof (value as { seconds: unknown }).seconds === "number"
+    ) {
+      const ts = value as { seconds: number; nanoseconds: number };
+      out[key] = new Date(ts.seconds * 1000 + ts.nanoseconds / 1_000_000).toISOString();
+    } else {
+      out[key] = value;
+    }
+  }
+  return out;
+}
 
 interface UserData {
   pets: Pet[];
@@ -76,7 +107,7 @@ export function useUserData(): UserData {
         (snap) => {
           setter(
             snap.docs.map((d) => {
-              const data = d.data() as Record<string, unknown>;
+              const data = normalizeDocData(d.data() as Record<string, unknown>);
               return { id: d.id, ...data } as unknown as T;
             }),
           );

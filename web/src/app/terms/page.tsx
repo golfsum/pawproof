@@ -59,14 +59,20 @@ export default function TermsPage() {
 
           <h2>5. PawProof Plus (paid plans)</h2>
           <p>
-            <strong>Billing.</strong> PawProof Plus is billed through
-            your Apple ID or Google Play account. Subscriptions renew
-            automatically until cancelled. Manage or cancel from your
-            Apple ID / Google Play settings, not from us.
+            <strong>Plans.</strong> PawProof Plus is available as a
+            $4.99 monthly subscription, a $39.99 yearly subscription, or
+            a $89.99 one-time Lifetime purchase. Subscriptions are
+            billed through your Apple ID or Google Play account and
+            renew automatically until cancelled. Manage or cancel from
+            your Apple ID / Google Play settings, not from us. Lifetime
+            is a single charge with no auto-renewal.
           </p>
           <p>
-            <strong>Free trial.</strong> The 7-day free trial converts to
-            paid unless cancelled at least 24 hours before it ends.
+            <strong>Free trial.</strong> Both the monthly and yearly
+            subscriptions include a 7-day free trial for first-time
+            subscribers. The trial converts to a paid subscription
+            unless cancelled at least 24 hours before it ends. Lifetime
+            does not include a trial.
           </p>
           <p>
             <strong>Refunds.</strong> Refunds are handled by Apple /

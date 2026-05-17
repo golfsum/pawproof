@@ -91,7 +91,7 @@ export default function MedicationDetailScreen() {
             if (!user) return;
             try {
               if (med.reminderId) {
-                await cancelReminder(null); // placeholder — actual notif id stored on reminder doc
+                await cancelReminder(null); // placeholder, actual notif id stored on reminder doc
                 await deleteReminder(user.uid, med.reminderId);
               }
               await deleteMedication(user.uid, med.id);

@@ -27,11 +27,12 @@ import { extractDocumentInfo, DocumentOcrResult, DetectedDocumentType, Extracted
 import { uploadCompressedPhoto, uploadFile } from '@/lib/storage';
 import { createDocument, createVaccine, createReminder, updatePet, incrementFreeOcrScanCount } from '@/lib/firestore';
 import { useGate } from '@/hooks/useGate';
-import { scheduleReminder } from '@/lib/notifications';
+import { scheduleVaccineExpirationReminder } from '@/lib/notifications';
 import { colors, radius, spacing, typography } from '@/theme';
 import { fmtDate, toDate, fmtMonths } from '@/utils/dates';
 import { fmtWeight } from '@/utils/units';
 import { canonicalizeVaccineName, vaccineKey } from '@/utils/vaccineNames';
+import { deriveExpiration } from '@/utils/vaccineSchedules';
 import type { DocumentKind, Reminder, VaccineRecord } from '@/types/models';
 
 type Stage = 'capture' | 'scanning' | 'confirm';
@@ -86,7 +87,7 @@ function sameCalendarDay(a: string | undefined | null, b: string | undefined | n
   return a.slice(0, 10) === b.slice(0, 10);
 }
 
-// Dedup matches on the CANONICAL key, not the raw string — so "Parvo"
+// Dedup matches on the CANONICAL key, not the raw string. So "Parvo"
 // scanned today will match an existing "DHPP" record on the same day.
 function isDuplicateVaccine(existing: VaccineRecord[], petId: string, name: string, dateGiven: string): boolean {
   const key = vaccineKey(name);
@@ -113,9 +114,10 @@ function isDuplicateReminder(existing: Reminder[], petId: string, name: string, 
 export default function ScanDocumentScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ petId?: string }>();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { pets, vaccines: existingVaccines, reminders: existingReminders } = useData();
   const { isPremium, ocrTrialAvailable } = useGate();
+  const warnDays = profile?.notificationPrefs?.vaccineWarnDays ?? 14;
 
   const [stage, setStage] = useState<Stage>('capture');
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -155,7 +157,7 @@ export default function ScanDocumentScreen() {
   };
 
   const pickFile = async () => {
-    // PDFs and images both supported — Gemini 2.5 Flash can OCR PDFs directly.
+    // PDFs and images both supported (Gemini 2.5 Flash can OCR PDFs directly).
     const res = await DocumentPicker.getDocumentAsync({
       type: ['application/pdf', 'image/*'],
       copyToCacheDirectory: true,
@@ -176,7 +178,7 @@ export default function ScanDocumentScreen() {
 
       // Burn the free-trial scan as soon as Gemini returns successfully.
       // We charge per Gemini call (which is what actually costs us money),
-      // not per save — so even if the user bails on the confirm screen,
+      // not per save, so even if the user bails on the confirm screen,
       // the trial is consumed.
       if (user && !isPremium) {
         incrementFreeOcrScanCount(user.uid).catch(() => {});
@@ -238,7 +240,7 @@ export default function ScanDocumentScreen() {
   const selectedGiven = given.filter(g => g.selected);
   const selectedDues = dues.filter(d => d.selected);
 
-  // Detected pet-detail updates — compare the OCR-extracted petDetails
+  // Detected pet-detail updates. Compare the OCR-extracted petDetails
   // against the selected pet's current values, and list each field that
   // would change. Pre-checked by default; user can opt out per-row.
   const detectedDetailRows = useMemo<DetectedDetailRow[]>(() => {
@@ -282,7 +284,7 @@ export default function ScanDocumentScreen() {
     return rows;
   }, [petId, result, pets]);
 
-  // Live duplicate sets — re-derived whenever the pet selection or existing
+  // Live duplicate sets, re-derived whenever the pet selection or existing
   // records change. Powers the "Already on file" badge in the UI.
   const duplicates = useMemo(() => {
     const givenDup = new Set<number>();
@@ -361,31 +363,93 @@ export default function ScanDocumentScreen() {
         await updatePet(user.uid, petId, petUpdates);
       }
 
-      // Bulk-create vaccine records
+      // Bulk-create vaccine records. For each administered vaccine
+      // we try to derive an expiration date from a schedule lookup
+      // (Rabies 1yr default, DHPP 1yr, etc.) when the document didn't
+      // give one. If derivation succeeds we also seed a renewal
+      // reminder so the user gets a heads-up before the next due date.
+      const petForSchedule = pets.find(p => p.id === petId);
+      let autoRenewalCount = 0;
       for (const v of selectedGiven) {
+        // Check if Gemini already extracted an explicit due date that
+        // matches this vaccine name. If yes, use it as the expiration.
+        const matchingDue = result?.vaccinesDue.find(
+          d => canonicalizeVaccineName(d.name) === v.name,
+        );
+        let expirationDate: string | null = null;
+        let expirationDerived = false;
+        if (matchingDue?.dueDate) {
+          expirationDate = normalizeIso(matchingDue.dueDate, 'T12:00:00.000Z');
+        } else {
+          const derived = deriveExpiration(v.name, v.dateGiven, petForSchedule);
+          if (derived) {
+            expirationDate = derived;
+            expirationDerived = true;
+          }
+        }
+
         await createVaccine(user.uid, {
           petId,
           vaccineName: v.name,
           dateGiven: v.dateGiven,
-          expirationDate: null,
+          expirationDate,
           clinicName: clinicName.trim() || undefined,
           lotNumber: v.lotNumber || undefined,
           documentId,
           reminderId: null,
+          isCompleted: true,
+          expirationDerived,
+          source: 'scan',
         });
+
+        // Seed a renewal reminder when we derived (or had) an
+        // expiration AND there isn't already a matching due reminder
+        // selected for save below. Two-week heads-up before expiration.
+        if (
+          expirationDate &&
+          !selectedDues.some(d => canonicalizeVaccineName(d.name) === v.name)
+        ) {
+          const dueAt = new Date(expirationDate);
+          if (!Number.isNaN(dueAt.getTime())) {
+            try {
+              const notifId = await scheduleVaccineExpirationReminder({
+                pet: petForSchedule ?? null,
+                vaccineName: v.name,
+                expiresAt: dueAt,
+                daysBefore: warnDays,
+              });
+              await createReminder(user.uid, {
+                petId,
+                type: 'vaccination',
+                title: `${v.name} vaccine`,
+                notes: expirationDerived
+                  ? `Auto-derived renewal based on typical schedule. Verify with your vet.`
+                  : 'Auto-created from a scanned document.',
+                dueDate: dueAt.toISOString(),
+                repeatType: 'none',
+                repeatInterval: null,
+                isCompleted: false,
+                nextDueDate: dueAt.toISOString(),
+                notificationId: notifId,
+              });
+              autoRenewalCount++;
+            } catch {
+              // ignore notification failures, the vaccine row is still saved
+            }
+          }
+        }
       }
 
       // Schedule reminders for due dates
       for (const d of selectedDues) {
         const dueAt = toDate(d.dueDate);
         if (!dueAt) continue;
-        const remindAt = new Date(dueAt.getTime() - 14 * 24 * 60 * 60 * 1000);
-        const fireAt = remindAt.getTime() > Date.now() ? remindAt : dueAt;
-        const notifId = await scheduleReminder(
-          `${d.name} vaccine due soon`,
-          `${d.name} is due ${dueAt.toLocaleDateString()}`,
-          fireAt,
-        );
+        const notifId = await scheduleVaccineExpirationReminder({
+          pet: petForSchedule ?? null,
+          vaccineName: d.name,
+          expiresAt: dueAt,
+          daysBefore: warnDays,
+        });
         await createReminder(user.uid, {
           petId,
           type: 'vaccination',
@@ -403,7 +467,8 @@ export default function ScanDocumentScreen() {
       router.back();
       const parts = ['Document saved'];
       if (selectedGiven.length) parts.push(`${selectedGiven.length} vaccine${selectedGiven.length === 1 ? '' : 's'} recorded`);
-      if (selectedDues.length) parts.push(`${selectedDues.length} reminder${selectedDues.length === 1 ? '' : 's'} scheduled`);
+      const totalReminders = selectedDues.length + autoRenewalCount;
+      if (totalReminders) parts.push(`${totalReminders} reminder${totalReminders === 1 ? '' : 's'} scheduled`);
       if (appliedDetailCount) parts.push(`${appliedDetailCount} pet detail${appliedDetailCount === 1 ? '' : 's'} updated`);
       Alert.alert('Saved', parts.join(' · '));
     } catch (e: any) {
@@ -423,14 +488,14 @@ export default function ScanDocumentScreen() {
         </View>
         <Text style={typography.h2}>Scan a pet document</Text>
         <Text style={[typography.body, { textAlign: 'center', color: colors.textMuted, marginBottom: spacing.lg, maxWidth: 320 }]}>
-          Vaccine card, vet invoice, exam report, insurance card — we'll figure out what it is, pull out vaccines and due dates, and let you review before anything saves.
+          Vaccine card, vet invoice, exam report, insurance card: we'll figure out what it is, pull out vaccines and due dates, and let you review before anything saves.
         </Text>
 
         {ocrTrialAvailable ? (
           <View style={styles.trialBanner}>
             <Ionicons name="sparkles" size={16} color={colors.primaryDark} />
             <Text style={styles.trialBannerText}>
-              Smart Scan is a Plus feature. Try your first scan free.
+              Try Smart Scan free. Save vaccine records in seconds.
             </Text>
           </View>
         ) : null}
@@ -494,7 +559,7 @@ export default function ScanDocumentScreen() {
         <View style={styles.banner}>
           <Ionicons name="information-circle-outline" size={18} color={colors.primaryDark} />
           <Text style={styles.bannerText}>
-            We detected this as {detectionLabel(result?.documentType)}. Review and adjust below — nothing is saved until you tap Save.
+            We detected this as {detectionLabel(result?.documentType)}. Review and adjust below. Nothing is saved until you tap Save.
           </Text>
         </View>
 
@@ -529,7 +594,7 @@ export default function ScanDocumentScreen() {
           </View>
         )}
 
-        {/* Vaccines administered — always renderable so user can add rows
+        {/* Vaccines administered: always renderable so user can add rows
             even when OCR found none. */}
         <Section
           icon="shield-checkmark-outline"
@@ -538,7 +603,7 @@ export default function ScanDocumentScreen() {
           tint={colors.success}
         >
           {given.length === 0 ? (
-            <Text style={styles.sectionEmpty}>No vaccines detected — add any that were given.</Text>
+            <Text style={styles.sectionEmpty}>No vaccines detected. Add any that were given.</Text>
           ) : null}
           {given.map((v, idx) => (
             <ToggleRow
@@ -570,7 +635,7 @@ export default function ScanDocumentScreen() {
           />
         </Section>
 
-        {/* Reminders to schedule — same pattern */}
+        {/* Reminders to schedule, same pattern */}
         <Section
           icon="alarm-outline"
           title="Reminders to schedule"
@@ -578,7 +643,7 @@ export default function ScanDocumentScreen() {
           tint={colors.primary}
         >
           {dues.length === 0 ? (
-            <Text style={styles.sectionEmpty}>No upcoming due dates detected — add any you want to be reminded about.</Text>
+            <Text style={styles.sectionEmpty}>No upcoming due dates detected. Add any you want to be reminded about.</Text>
           ) : null}
           {dues.map((d, idx) => (
             <ToggleRow
@@ -599,7 +664,7 @@ export default function ScanDocumentScreen() {
           <AddRow
             tint={colors.primary}
             placeholder="Vaccine name (e.g. Rabies)"
-            // Default to one year from the document date — most vaccines are
+            // Default to one year from the document date, since most vaccines are
             // annual, so this is a useful starting point the user can tweak.
             defaultDate={(() => {
               const base = result?.documentDate ? toDate(result.documentDate) ?? new Date() : new Date();
@@ -849,7 +914,7 @@ const styles = StyleSheet.create({
     flexGrow: 1, alignItems: 'center', justifyContent: 'center',
     padding: spacing.lg, backgroundColor: colors.bg, gap: 6,
   },
-  // One-time trial banner on the capture stage — appears only while the
+  // One-time trial banner on the capture stage, appears only while the
   // free Smart Scan trial is still available, so users know they're
   // about to sample a Plus feature instead of being surprised by a
   // paywall on attempt two.

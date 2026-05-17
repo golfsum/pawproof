@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, fonts } from '@/theme';
 
 /**
- * Coral-bordered "Health Alert" banner — visual cue for overdue vaccines /
+ * Coral-bordered "Health Alert" banner. Visual cue for overdue vaccines /
  * meds / vet visits on a pet profile or Records view. Stays visually heavier
  * than a regular reminder card so it commands attention but doesn't shout.
  */

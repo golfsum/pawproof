@@ -87,7 +87,7 @@ export function PhotoPicker({ value, onChange, shape = 'circle', size = 110, lab
 
   return (
     <View style={styles.wrap}>
-      {/* Outer clip View — Pressable's overflow:hidden is unreliable across
+      {/* Outer clip View: Pressable's overflow:hidden is unreliable across
           RN versions, so a wrapper View enforces the circle clip. */}
       <View style={[styles.clip, dim]}>
         <Pressable

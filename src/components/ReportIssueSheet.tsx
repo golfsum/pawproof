@@ -28,7 +28,7 @@ import { Chip } from './Chip';
 interface Props {
   visible: boolean;
   onClose: () => void;
-  // Optional context blob — the caller can include pet/record IDs or
+  // Optional context blob. The caller can include pet/record IDs or
   // other state so the admin can reproduce the issue.
   context?: Record<string, any> | null;
 }
@@ -64,13 +64,20 @@ export function ReportIssueSheet({ visible, onClose, context }: Props) {
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
 
+  const trimmed = message.trim();
+  const messageValid = trimmed.length >= 10;
+  const canSubmit = !saving && !!user && messageValid;
+
   const handleSubmit = async () => {
     if (!user) {
       Alert.alert('Sign in required', 'You need to be signed in to submit a ticket.');
       return;
     }
-    if (message.trim().length < 3) {
-      Alert.alert('Add a bit more detail', 'Tell us what happened so we can help.');
+    if (!messageValid) {
+      Alert.alert(
+        'A little more detail, please',
+        'Give us at least a sentence so we can actually help.',
+      );
       return;
     }
     setSaving(true);
@@ -80,7 +87,7 @@ export function ReportIssueSheet({ visible, onClose, context }: Props) {
         email: user.email ?? null,
         displayName: profile?.displayName ?? user.displayName ?? null,
         category,
-        message: message.trim(),
+        message: trimmed,
         source: 'mobile-settings',
         platform: Platform.OS,
         appVersion: (Constants.expoConfig?.version as string | undefined) ?? null,
@@ -93,7 +100,7 @@ export function ReportIssueSheet({ visible, onClose, context }: Props) {
         context: context ?? null,
       });
       Alert.alert(
-        'Thanks — we got it.',
+        'Thanks, we got it.',
         "We'll reply by email and you can also see your tickets on the web at pawproof.app.",
         [{ text: 'OK', onPress: () => { setMessage(''); onClose(); } }],
       );
@@ -125,8 +132,8 @@ export function ReportIssueSheet({ visible, onClose, context }: Props) {
             keyboardShouldPersistTaps="handled"
           >
             <Text style={styles.intro}>
-              Send us bug reports, feature ideas, or anything that feels off.
-              We read every ticket and reply within a day or two.
+              Send bug reports, feature ideas, or anything that feels off. We
+              read every ticket and usually reply within a day or two.
             </Text>
 
             <View style={{ gap: 8 }}>
@@ -154,6 +161,13 @@ export function ReportIssueSheet({ visible, onClose, context }: Props) {
                 maxLength={4000}
                 style={styles.input}
               />
+              <Text style={styles.charHint}>
+                {trimmed.length < 10
+                  ? `${Math.max(0, 10 - trimmed.length)} more character${
+                      10 - trimmed.length === 1 ? '' : 's'
+                    } before you can submit`
+                  : `${trimmed.length} characters`}
+              </Text>
             </View>
 
             <Text style={styles.disclaimer}>
@@ -162,10 +176,10 @@ export function ReportIssueSheet({ visible, onClose, context }: Props) {
             </Text>
 
             <PrimaryButton
-              title="Submit ticket"
+              title={saving ? 'Submitting ticket…' : 'Submit ticket'}
               onPress={handleSubmit}
               loading={saving}
-              disabled={message.trim().length < 3}
+              disabled={!canSubmit}
               icon="paper-plane-outline"
             />
           </ScrollView>
@@ -222,5 +236,11 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     textAlign: 'center',
     paddingHorizontal: spacing.md,
+  },
+  charHint: {
+    fontSize: 11,
+    color: colors.textFaint,
+    marginLeft: 4,
+    marginTop: 2,
   },
 });

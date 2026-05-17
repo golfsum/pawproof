@@ -116,7 +116,7 @@ function stripFences(s: string): string {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Universal document extractor — handles ANY pet-related document (vaccine
+// Universal document extractor. Handles ANY pet-related document (vaccine
 // certificate, vet invoice, vet record, insurance card, etc). Auto-detects
 // the document type and pulls out everything actionable in one pass. The
 // confirm UI then shows whatever was found.
@@ -139,7 +139,7 @@ export interface ExtractedPetDetails {
   breed: string | null;
   birthday: string | null;        // ISO yyyy-mm-dd
   approxAgeMonths: number | null;
-  weightKg: number | null;        // canonical kg — Gemini converts from lb if needed
+  weightKg: number | null;        // canonical kg, Gemini converts from lb if needed
   microchip: string | null;
   sex: PetSex | null;
   color: string | null;
@@ -207,7 +207,7 @@ Return STRICT JSON ONLY (no markdown fences, no commentary). Schema:
 Rules:
 - Identify documentType from the CONTENT, not the file name.
 
-Vaccine extraction — read this carefully:
+Vaccine extraction (read this carefully):
 - A "vaccine administered" is any vaccine that was GIVEN during the visit covered by this document.
 - Common signals that a vaccine was administered (any one is sufficient):
   - It appears as a line item in the services / charges / "today's visit" section
@@ -216,8 +216,8 @@ Vaccine extraction — read this carefully:
   - It has a lot number, serial number, or expiration printed next to it
   - It is listed in a "vaccine history" table with a date that matches or is close to the document date
 - A "vaccine due" is one with a clearly stated future date labelled "due", "next due", "due by", "expires", "renewal date", or shown in a "next due" / "upcoming" column.
-- If a vaccine appears in BOTH a "given today" context AND with a future "next due" date (very common on vet invoices — the vaccine was just given today, and the next renewal is shown), include it in BOTH arrays.
-- BE THOROUGH: if the document lists 4 vaccines with charges and 4 next-due dates, the answer is 4 entries in vaccinesAdministered AND 4 entries in vaccinesDue. Do NOT silently drop entries you're unsure about — if a vaccine name appears anywhere with strong contextual evidence it was given, include it.
+- If a vaccine appears in BOTH a "given today" context AND with a future "next due" date (very common on vet invoices, where the vaccine was just given today and the next renewal is shown), include it in BOTH arrays.
+- BE THOROUGH: if the document lists 4 vaccines with charges and 4 next-due dates, the answer is 4 entries in vaccinesAdministered AND 4 entries in vaccinesDue. Do NOT silently drop entries you're unsure about. If a vaccine name appears anywhere with strong contextual evidence it was given, include it.
 - If the document is clearly NOT vaccine-related (e.g. an insurance card with no clinical data), set both arrays to [].
 
 Naming + dates:
@@ -228,7 +228,7 @@ Naming + dates:
 
 Vaccine alias → canonical map (use this EXACTLY):
 
-  DHPP — the standard dog combo vaccine. Any of these aliases → "DHPP":
+  DHPP: the standard dog combo vaccine. Any of these aliases → "DHPP":
     "Parvo", "Parvovirus", "CPV", "Distemper", "CDV", "Adenovirus",
     "Hepatitis", "Parainfluenza", "DA2PP", "DAPP", "DAP", "DHPPi",
     "DAPPi", "DA2P-P", "DHLPP", "5-in-1", "Five-Way", "Combo",
@@ -237,27 +237,27 @@ Vaccine alias → canonical map (use this EXACTLY):
       If the doc clearly itemises separate monovalent shots (rare),
       keep them separate. The 99% case is combo → DHPP.
 
-  FVRCP — the standard cat combo vaccine. Any of these → "FVRCP":
+  FVRCP: the standard cat combo vaccine. Any of these → "FVRCP":
     "Feline Distemper", "Feline Combo", "Rhino", "Rhinotracheitis",
     "Calici", "Calicivirus", "Panleukopenia", "Panleuk", "HCP", "RCP"
 
-  Rabies — "Rab", "Rabies" → "Rabies"
-  Bordetella — "Bord", "Kennel Cough", "B. bronchiseptica" → "Bordetella"
-  Lepto — "Leptospirosis", "Lepto4", "Lepto 4-way" → "Lepto"
-  Lyme — "Borrelia", "Borreliosis" → "Lyme"
-  Influenza — "Flu", "Canine Flu", "CIV", "H3N2", "H3N8", "Bivalent Flu" → "Influenza"
-  FeLV — "Feline Leukemia", "Leukemia" → "FeLV"
-  FIV — "Feline Immunodeficiency" → "FIV"
-  Heartworm Test — "HW", "HW Test", "4DX", "SNAP 4DX", "SNAP Test", "Accuplex" → "Heartworm Test"
-  Fecal — "Fecal Exam", "Fecal Test", "Ova & Parasites", "O&P" → "Fecal"
-  Rattlesnake — "Crotalus" → "Rattlesnake"
+  Rabies: "Rab", "Rabies" → "Rabies"
+  Bordetella: "Bord", "Kennel Cough", "B. bronchiseptica" → "Bordetella"
+  Lepto: "Leptospirosis", "Lepto4", "Lepto 4-way" → "Lepto"
+  Lyme: "Borrelia", "Borreliosis" → "Lyme"
+  Influenza: "Flu", "Canine Flu", "CIV", "H3N2", "H3N8", "Bivalent Flu" → "Influenza"
+  FeLV: "Feline Leukemia", "Leukemia" → "FeLV"
+  FIV: "Feline Immunodeficiency" → "FIV"
+  Heartworm Test: "HW", "HW Test", "4DX", "SNAP 4DX", "SNAP Test", "Accuplex" → "Heartworm Test"
+  Fecal: "Fecal Exam", "Fecal Test", "Ova & Parasites", "O&P" → "Fecal"
+  Rattlesnake: "Crotalus" → "Rattlesnake"
 
 Pet vitals extraction:
 - Look for vitals anywhere on the document. Common signal labels: "DOB:", "Date of Birth:", "Age:", "Weight:", "Wt:", "Microchip:", "Chip #:", "Breed:", "Sex:", "Color:", "Coat:".
 - birthday + approxAgeMonths: if both appear, fill both. If only one, fill that one and leave the other null.
 - weightKg: if the document gives weight in lb (or "#"), convert (kg = lb * 0.4536) and round to 1 decimal.
 - microchip: digits only (strip spaces, dashes, or "ID:" prefixes).
-- sex: lowercase "male" or "female" only. Map M, M(N), MN → male and F, F(S), FS → female. Don't return null just because the doc says "neutered" — that's still male.
+- sex: lowercase "male" or "female" only. Map M, M(N), MN → male and F, F(S), FS → female. Don't return null just because the doc says "neutered"; that's still male.
 - species: lowercase. Map "Canine" → "dog", "Feline" → "cat", "Rabbit" → "rabbit", etc.
 - If a vital isn't clearly present, set its field to null. Do NOT guess.
 
@@ -327,7 +327,7 @@ export async function extractDocumentInfo(imageUri: string): Promise<DocumentOcr
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Vet invoice extractor — pulls structured data from a vet visit invoice:
+// Vet invoice extractor. Pulls structured data from a vet visit invoice:
 // document metadata, vaccines administered today, AND future vaccines due.
 // Lets the app bulk-create vaccine records + reminders in one scan.
 // ────────────────────────────────────────────────────────────────────────────
@@ -380,7 +380,7 @@ Return STRICT JSON ONLY (no markdown fences, no commentary). Schema:
 }
 
 Rules:
-- "vaccinesAdministered" are vaccines given DURING THIS VISIT — usually listed under "Services", "Vaccines", "Today", or similar. If dateGiven isn't explicit per vaccine, leave it null (the app will default to documentDate).
+- "vaccinesAdministered" are vaccines given DURING THIS VISIT, usually listed under "Services", "Vaccines", "Today", or similar. If dateGiven isn't explicit per vaccine, leave it null (the app will default to documentDate).
 - "vaccinesDue" are future-dated vaccines listed as "due", "next due", "due date", or "upcoming". Only include entries that have a clear future date. Skip ambiguous entries.
 - Normalise vaccine names to canonical short forms: "Rabies", "DHPP", "DA2PP", "DAPP", "Bordetella", "FVRCP", "Lepto", "Lyme", "Influenza", "Heartworm Test", "Fecal", etc. Strip frequency suffixes like "Annual" or "1-Year".
 - Normalise all dates to YYYY-MM-DD. Resolve 2-digit years to 20YY.
@@ -447,7 +447,7 @@ export async function extractVetInvoiceInfo(imageUri: string): Promise<InvoiceOc
       dateGiven: v.dateGiven ?? parsed.documentDate,
     }));
   }
-  // Sanitise vaccines without a name/date — they're not actionable.
+  // Sanitise vaccines without a name/date. They're not actionable.
   parsed.vaccinesAdministered = parsed.vaccinesAdministered.filter(v => v.name && v.name.trim().length > 0);
   parsed.vaccinesDue = parsed.vaccinesDue.filter(v => v.name && v.dueDate);
 

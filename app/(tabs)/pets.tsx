@@ -14,7 +14,7 @@ import { daysUntil } from '@/utils/dates';
 
 export default function PetsScreen() {
   const router = useRouter();
-  const { pets, reminders, vaccines } = useData();
+  const { pets, reminders, vaccines, entries } = useData();
   const { check } = useGate();
 
   const handleAdd = () => {
@@ -34,7 +34,7 @@ export default function PetsScreen() {
           <EmptyState
             icon="paw-outline"
             title="No pets yet"
-            body="Add your first pet to start logging care, reminders, and records."
+            body="Add your first pet to start tracking care, reminders, and records."
             cta={{ label: 'Add a pet', icon: 'add', onPress: handleAdd }}
           />
         </View>
@@ -42,21 +42,17 @@ export default function PetsScreen() {
         <ScrollView
           contentContainerStyle={{ paddingHorizontal: spacing.base, paddingBottom: 140, gap: spacing.sm }}
         >
-          {pets.map(pet => {
-            const next = reminders
-              .filter(r => r.petId === pet.id && !r.isCompleted)
-              .sort((a, b) => +new Date(a.dueDate) - +new Date(b.dueDate))[0] ?? null;
-            const expiring =
-              vaccines.find(v =>
-                v.petId === pet.id &&
-                v.expirationDate &&
-                (daysUntil(v.expirationDate) ?? 999) <= 30 &&
-                (daysUntil(v.expirationDate) ?? 999) >= 0,
-              ) ?? null;
-            return <PetCard key={pet.id} pet={pet} nextReminder={next} expiringVaccine={expiring} />;
-          })}
+          {pets.map(pet => (
+            <PetCard
+              key={pet.id}
+              pet={pet}
+              reminders={reminders}
+              vaccines={vaccines}
+              entries={entries}
+            />
+          ))}
 
-          {/* "Add another pet" affordance — keeps the screen feeling lived-in
+          {/* "Add another pet" affordance: keeps the screen feeling lived-in
               with one pet, hints at premium / household sharing. */}
           <Pressable
             onPress={handleAdd}

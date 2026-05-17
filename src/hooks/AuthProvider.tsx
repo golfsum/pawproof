@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => {
       setUser(u);
-      // Flip initializing immediately so the splash can dismiss — don't block
+      // Flip initializing immediately so the splash can dismiss. Don't block
       // on the Firestore round-trip. `watchUserProfile` below will populate
       // `profile` once the doc exists; `ensureUserProfile` runs in the
       // background to create it for new users.

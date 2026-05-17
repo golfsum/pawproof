@@ -1,81 +1,152 @@
 "use client";
 
-import { signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
+import { signOut } from "firebase/auth";
+import {
+  Bell,
+  FileText,
+  LogOut,
+  MessageSquare,
+  Shield,
+  Sparkles,
+} from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { auth } from "@/lib/firebase";
-import { Button } from "@/components/ui/button";
+import {
+  Card,
+  Chip,
+  ListRow,
+  PageTitle,
+  SectionLabel,
+} from "@/components/app-ui";
+
+// Settings — matches the iOS Settings tab structure: profile card,
+// then grouped lists with thin hairline separators.
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   return (
-    <div className="mx-auto max-w-3xl px-4 md:px-8 py-8">
-      <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-      <p className="mt-1 text-muted text-sm">
-        Account-level settings. Most preferences (notifications, units,
-        emergency contacts per pet) live in the mobile app.
-      </p>
+    <>
+      <PageTitle title="Settings" />
 
-      <section className="mt-8 rounded-2xl border border-border bg-surface p-5">
-        <h2 className="font-semibold">Account</h2>
-        <dl className="mt-3 text-sm grid gap-2">
-          <Row label="Email" value={user?.email ?? "-"} />
-          <Row label="Display name" value={user?.displayName ?? "-"} />
-          <Row label="Provider" value={user?.providerData?.[0]?.providerId ?? "-"} />
-          <Row label="User ID" value={user?.uid ?? "-"} mono />
-        </dl>
-      </section>
+      <Card>
+        <div className="profile-row">
+          <div className="profile-avatar">
+            {(profile?.displayName ?? user?.email ?? "?")[0]?.toUpperCase()}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="profile-name">{profile?.displayName ?? user?.email ?? "You"}</div>
+            <div className="profile-sub">{user?.email}</div>
+          </div>
+          {profile?.isPremium ? <Chip label="Plus" tone="success" /> : null}
+        </div>
+      </Card>
 
-      <section className="mt-6 rounded-2xl border border-border bg-surface p-5">
-        <h2 className="font-semibold">Subscription</h2>
-        <p className="mt-2 text-sm text-muted">
-          Subscriptions are managed in the iOS App Store (Settings → Apple
-          ID → Subscriptions → PawProof). Refunds are handled by Apple per
-          their policies.
-        </p>
-      </section>
+      <SectionLabel>Subscription</SectionLabel>
+      <Card noPadding>
+        <ListRow
+          icon={<Sparkles size={18} />}
+          iconTint="primary"
+          title={profile?.isPremium ? "PawProof Plus" : "Upgrade to PawProof Plus"}
+          subtitle={
+            profile?.isPremium
+              ? "You're a Plus member."
+              : "Unlimited pets, OCR, PDF export, and more."
+          }
+        />
+      </Card>
 
-      <section className="mt-6 rounded-2xl border border-border bg-surface p-5">
-        <h2 className="font-semibold">Data &amp; privacy</h2>
-        <p className="mt-2 text-sm text-muted">
-          To delete your account and all associated pet records, email{" "}
-          <a className="text-primary font-semibold" href="mailto:support@pawproof.app">
-            support@pawproof.app
-          </a>{" "}
-          or use Settings → Delete account in the iOS app. Deletion
-          completes within 30 days.
-        </p>
-        <a
+      <SectionLabel>Support</SectionLabel>
+      <Card noPadding>
+        <ListRow
+          icon={<MessageSquare size={18} />}
+          iconTint="primary"
+          title="My tickets"
+          subtitle="View admin replies and submit new tickets"
+          href="/dashboard/support"
+        />
+      </Card>
+
+      <SectionLabel>Notifications</SectionLabel>
+      <Card noPadding>
+        <ListRow
+          icon={<Bell size={18} />}
+          iconTint="primary"
+          title="Manage in iOS app"
+          subtitle="Notification grouping and vaccine warning windows live in the mobile Settings tab."
+        />
+      </Card>
+
+      <SectionLabel>Account</SectionLabel>
+      <Card noPadding>
+        <ListRow
+          icon={<Shield size={18} />}
+          iconTint="primary"
+          title="Privacy"
+          subtitle="How we store and use your data"
           href="/privacy"
-          className="mt-3 inline-block text-sm text-primary font-semibold hover:underline"
-        >
-          Read our privacy policy →
-        </a>
-      </section>
-
-      <section className="mt-6 rounded-2xl border border-border bg-surface p-5">
-        <h2 className="font-semibold">Session</h2>
-        <Button
-          variant="outline"
-          className="mt-3"
+        />
+        <ListRow
+          icon={<FileText size={18} />}
+          iconTint="primary"
+          title="Terms of Service"
+          href="/terms"
+        />
+        <ListRow
+          icon={<LogOut size={18} />}
+          iconTint="danger"
+          title="Sign out"
+          subtitle="Sign back in anytime"
           onClick={() => {
             if (auth) void signOut(auth).then(() => router.replace("/"));
           }}
-        >
-          Sign out
-        </Button>
-      </section>
-    </div>
-  );
-}
+        />
+      </Card>
 
-function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="flex gap-4 py-1.5 border-b border-divider last:border-0">
-      <dt className="w-32 text-muted shrink-0">{label}</dt>
-      <dd className={mono ? "font-mono text-xs break-all" : "break-all"}>{value}</dd>
-    </div>
+      <p className="fineprint">PawProof web · v1.0</p>
+
+      <style jsx>{`
+        .profile-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .profile-avatar {
+          width: 56px;
+          height: 56px;
+          border-radius: 999px;
+          background: #e1f1f5;
+          color: #2a8fa8;
+          font-weight: 700;
+          font-size: 22px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .profile-name {
+          font-size: 17px;
+          font-weight: 700;
+          color: #16252e;
+          letter-spacing: -0.2px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .profile-sub {
+          font-size: 13px;
+          color: rgba(60, 60, 67, 0.6);
+          margin-top: 2px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .fineprint {
+          text-align: center;
+          color: rgba(60, 60, 67, 0.3);
+          font-size: 11px;
+          margin-top: 24px;
+        }
+      `}</style>
+    </>
   );
 }

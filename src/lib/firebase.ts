@@ -37,7 +37,7 @@ if (!getApps().length) {
 
 // Always TRY to initialize Firestore with our settings. If a previous
 // instance already exists (Fast Refresh keeps the app instance hot),
-// initializeFirestore throws — fall back to the existing instance.
+// initializeFirestore throws, so fall back to the existing instance.
 //
 // ignoreUndefinedProperties: optional form fields can be `undefined`, and
 // Firestore's default rejects writes containing them. Strip silently.
@@ -55,7 +55,7 @@ try {
 } catch (err: any) {
   db = getFirestore(app);
   console.log(
-    '[firebase] Firestore was already initialized — using existing instance.',
+    '[firebase] Firestore was already initialized, using existing instance.',
     'If you just changed firebase.ts settings, fully kill and relaunch the app.',
   );
 }

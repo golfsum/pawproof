@@ -26,6 +26,8 @@ import type {
   UserProfile,
   WeightLog,
   Medication,
+  PetShare,
+  ShareRole,
 } from '@/types/models';
 
 // All user-scoped data lives at /users/{uid}/{collection}/{docId}. Firestore
@@ -39,10 +41,13 @@ const vaccinesCol = (uid: string) => collection(db, 'users', uid, 'vaccines');
 const docsCol = (uid: string) => collection(db, 'users', uid, 'documents');
 const weightsCol = (uid: string) => collection(db, 'users', uid, 'weights');
 const medsCol = (uid: string) => collection(db, 'users', uid, 'medications');
-// Top-level — the same collection the web admin dashboard reads. Each
+// Top-level: the same collection the web admin dashboard reads. Each
 // doc carries the author's uid so Firestore rules can enforce
 // "user can only write their own" + "any auth user can read their own".
 const supportIssuesCol = () => collection(db, 'support_issues');
+// Top-level caregiver shares. Owners read by ownerUid, invitees read
+// by inviteeEmail or inviteeUid. Acceptance flips status + sets uid.
+const petSharesCol = () => collection(db, 'pet_shares');
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -75,6 +80,7 @@ export async function ensureUserProfile(uid: string, email: string | null): Prom
     displayName: null,
     isPremium: false,
     freeOcrScansUsed: 0,
+    onboardingCompleted: false,
     createdAt: nowIso(),
   };
   await setDoc(ref, { ...profile, createdAt: serverTimestamp() });
@@ -100,6 +106,129 @@ export async function setPremium(uid: string, isPremium: boolean): Promise<void>
 // twice quickly) still produce the correct total.
 export async function incrementFreeOcrScanCount(uid: string): Promise<void> {
   await updateDoc(doc(usersCol(), uid), { freeOcrScansUsed: increment(1) });
+}
+
+// Mark the onboarding wizard as done so the root layout stops
+// detouring this user to /onboarding on sign-in. trackingInterests is
+// optional and persisted for later use (defaults on Quick Log, etc).
+export async function markOnboardingComplete(
+  uid: string,
+  trackingInterests?: string[],
+): Promise<void> {
+  const update: Record<string, unknown> = { onboardingCompleted: true };
+  if (trackingInterests && trackingInterests.length > 0) {
+    update.trackingInterests = trackingInterests;
+  }
+  await updateDoc(doc(usersCol(), uid), update);
+}
+
+// Partial update to the user's notification preferences. Reads what's
+// already there and merges so callers can update one field without
+// clobbering the others.
+export async function updateNotificationPrefs(
+  uid: string,
+  patch: { groupMultiPet?: boolean; vaccineWarnDays?: 14 | 30 | 60 | 90 },
+): Promise<void> {
+  const snap = await getDoc(doc(usersCol(), uid));
+  const existing = (snap.data()?.notificationPrefs ?? {}) as Record<string, unknown>;
+  await updateDoc(doc(usersCol(), uid), {
+    notificationPrefs: { ...existing, ...patch },
+  });
+}
+
+// Update the user's preferred distance unit. Used by the Settings →
+// Units row. We accept null to clear back to the locale default, but
+// most callers pass 'mi' or 'km' directly.
+export async function setDistanceUnit(
+  uid: string,
+  unit: 'mi' | 'km',
+): Promise<void> {
+  await updateDoc(doc(usersCol(), uid), { distanceUnit: unit });
+}
+
+// One-shot backup of everything under /users/{uid}. Used by the
+// data-export flow to produce a single JSON file the user can save
+// or share. Reads each subcollection in parallel; doesn't follow
+// document fileUrls (those stay as URLs in the payload, since
+// re-downloading the binary would explode the export size).
+export interface UserBackup {
+  exportedAt: string;
+  schemaVersion: 1;
+  profile: UserProfile | null;
+  pets: Pet[];
+  vaccines: VaccineRecord[];
+  documents: PetDocument[];
+  reminders: Reminder[];
+  journalEntries: JournalEntry[];
+  medications: Medication[];
+  weights: WeightLog[];
+}
+
+// Wipe every doc under /users/{uid}/... plus the profile itself. Used
+// by the "Delete my data" flow in Settings. Does NOT touch Firebase
+// Auth — the user stays signed in (and can re-create records) until
+// they explicitly delete the auth account, which has different
+// reauth requirements. Done in batches because Firestore caps writes
+// per batch at 500.
+export async function deleteAllUserData(uid: string): Promise<void> {
+  const subcollections = [
+    petsCol(uid),
+    entriesCol(uid),
+    remindersCol(uid),
+    vaccinesCol(uid),
+    docsCol(uid),
+    weightsCol(uid),
+    medsCol(uid),
+  ];
+  for (const col of subcollections) {
+    const snap = await getDocs(col);
+    for (const d of snap.docs) {
+      await deleteDoc(d.ref);
+    }
+  }
+  // Tickets the user owns get archived (marked deleted) rather than
+  // hard-removed so we keep our support history. Skipped here.
+
+  // Outgoing pet_shares should be revoked so invitees stop seeing
+  // ghosts of pets that no longer exist.
+  const myShares = await getDocs(
+    query(petSharesCol(), where('ownerUid', '==', uid)),
+  );
+  for (const d of myShares.docs) {
+    await deleteDoc(d.ref);
+  }
+
+  // Finally, drop the profile doc itself.
+  await deleteDoc(doc(usersCol(), uid));
+}
+
+export async function fetchAllUserData(uid: string): Promise<UserBackup> {
+  const profileSnap = await getDoc(doc(usersCol(), uid));
+  const profile = profileSnap.exists()
+    ? fromDoc<UserProfile>({ id: profileSnap.id, data: () => profileSnap.data() })
+    : null;
+  const [petsSnap, vaccSnap, docSnap, remSnap, entriesSnap, medsSnap, weightsSnap] =
+    await Promise.all([
+      getDocs(petsCol(uid)),
+      getDocs(vaccinesCol(uid)),
+      getDocs(docsCol(uid)),
+      getDocs(remindersCol(uid)),
+      getDocs(entriesCol(uid)),
+      getDocs(medsCol(uid)),
+      getDocs(weightsCol(uid)),
+    ]);
+  return {
+    exportedAt: nowIso(),
+    schemaVersion: 1,
+    profile,
+    pets: petsSnap.docs.map(d => fromDoc<Pet>(d)),
+    vaccines: vaccSnap.docs.map(d => fromDoc<VaccineRecord>(d)),
+    documents: docSnap.docs.map(d => fromDoc<PetDocument>(d)),
+    reminders: remSnap.docs.map(d => fromDoc<Reminder>(d)),
+    journalEntries: entriesSnap.docs.map(d => fromDoc<JournalEntry>(d)),
+    medications: medsSnap.docs.map(d => fromDoc<Medication>(d)),
+    weights: weightsSnap.docs.map(d => fromDoc<WeightLog>(d)),
+  };
 }
 
 // --- Support tickets ---
@@ -150,6 +279,258 @@ export async function createSupportIssue(input: CreateSupportIssueInput): Promis
   return ref.id;
 }
 
+export interface SupportThreadMessage {
+  from: 'user' | 'admin';
+  message: string;
+  createdAt: string;
+  byUid?: string;
+  byEmail?: string;
+}
+
+export interface SupportIssueDoc {
+  id: string;
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  status: 'open' | 'in_review' | 'completed';
+  category: string;
+  message: string;
+  thread: SupportThreadMessage[];
+  createdAt: string;
+  updatedAt: string;
+  lastAdminUpdateAt: string | null;
+}
+
+function shapeSupportIssue(id: string, raw: any): SupportIssueDoc {
+  const toIso = (v: any): string | null => {
+    if (!v) return null;
+    if (typeof v === 'string') return v;
+    if (v instanceof Timestamp) return v.toDate().toISOString();
+    if (v && typeof v.toDate === 'function') return v.toDate().toISOString();
+    return null;
+  };
+  const thread: SupportThreadMessage[] = Array.isArray(raw.thread)
+    ? raw.thread.map((m: any) => ({
+        from: m.from === 'admin' ? 'admin' : 'user',
+        message: typeof m.message === 'string' ? m.message : '',
+        createdAt: toIso(m.createdAt) ?? new Date().toISOString(),
+        byUid: typeof m.byUid === 'string' ? m.byUid : undefined,
+        byEmail: typeof m.byEmail === 'string' ? m.byEmail : undefined,
+      }))
+    : [];
+  return {
+    id,
+    uid: raw.uid ?? '',
+    email: raw.email ?? null,
+    displayName: raw.displayName ?? null,
+    status: raw.status === 'completed' || raw.status === 'in_review' ? raw.status : 'open',
+    category: raw.category ?? 'other',
+    message: raw.message ?? '',
+    thread,
+    createdAt: toIso(raw.createdAt) ?? new Date().toISOString(),
+    updatedAt: toIso(raw.updatedAt) ?? new Date().toISOString(),
+    lastAdminUpdateAt: toIso(raw.lastAdminUpdateAt),
+  };
+}
+
+// Live stream of the signed-in user's own tickets. Sorted newest update
+// first so a reply from the admin bumps the ticket to the top.
+export function watchSupportIssuesForUser(
+  uid: string,
+  cb: (issues: SupportIssueDoc[]) => void,
+): Unsubscribe {
+  const q = query(
+    supportIssuesCol(),
+    where('uid', '==', uid),
+    orderBy('updatedAt', 'desc'),
+    limit(50),
+  );
+  return onSnapshot(q, snap => {
+    cb(snap.docs.map(d => shapeSupportIssue(d.id, d.data())));
+  });
+}
+
+export function watchSupportIssue(
+  issueId: string,
+  cb: (issue: SupportIssueDoc | null) => void,
+): Unsubscribe {
+  return onSnapshot(doc(supportIssuesCol(), issueId), snap => {
+    if (!snap.exists()) {
+      cb(null);
+      return;
+    }
+    cb(shapeSupportIssue(snap.id, snap.data()));
+  });
+}
+
+// --- Caregiver sharing ---
+
+// 6-character invite code, lowercase alpha. Short enough to type or
+// paste, long enough that brute-forcing the pet_shares collection is
+// pointless (Firestore rules still scope reads to the inviter and
+// invitee anyway).
+function generateInviteCode(): string {
+  const alphabet = 'abcdefghjkmnpqrstuvwxyz23456789';
+  let out = '';
+  for (let i = 0; i < 6; i++) {
+    out += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  return out;
+}
+
+function shapeShare(id: string, raw: any): PetShare {
+  const toIso = (v: any): string | null => {
+    if (!v) return null;
+    if (typeof v === 'string') return v;
+    if (v instanceof Timestamp) return v.toDate().toISOString();
+    if (v && typeof v.toDate === 'function') return v.toDate().toISOString();
+    return null;
+  };
+  return {
+    id,
+    petId: raw.petId ?? '',
+    petName: raw.petName ?? '',
+    ownerUid: raw.ownerUid ?? '',
+    ownerEmail: raw.ownerEmail ?? null,
+    ownerName: raw.ownerName ?? null,
+    inviteeEmail: (raw.inviteeEmail ?? '').toLowerCase(),
+    inviteeUid: raw.inviteeUid ?? null,
+    role: raw.role === 'view_only' ? 'view_only' : 'caregiver',
+    status:
+      raw.status === 'accepted' || raw.status === 'revoked' ? raw.status : 'pending',
+    inviteCode: raw.inviteCode ?? '',
+    createdAt: toIso(raw.createdAt) ?? new Date().toISOString(),
+    acceptedAt: toIso(raw.acceptedAt),
+    revokedAt: toIso(raw.revokedAt),
+  };
+}
+
+export interface CreateShareInput {
+  petId: string;
+  petName: string;
+  ownerUid: string;
+  ownerEmail: string | null;
+  ownerName: string | null;
+  inviteeEmail: string;
+  role: ShareRole;
+}
+
+export async function createShareInvite(input: CreateShareInput): Promise<PetShare> {
+  const ref = doc(petSharesCol());
+  const inviteCode = generateInviteCode();
+  const payload = {
+    petId: input.petId,
+    petName: input.petName,
+    ownerUid: input.ownerUid,
+    ownerEmail: input.ownerEmail,
+    ownerName: input.ownerName,
+    inviteeEmail: input.inviteeEmail.trim().toLowerCase(),
+    inviteeUid: null,
+    role: input.role,
+    status: 'pending',
+    inviteCode,
+    createdAt: serverTimestamp(),
+    acceptedAt: null,
+    revokedAt: null,
+  };
+  await setDoc(ref, payload);
+  const snap = await getDoc(ref);
+  return shapeShare(ref.id, snap.data() ?? {});
+}
+
+export async function revokeShareInvite(shareId: string): Promise<void> {
+  await updateDoc(doc(petSharesCol(), shareId), {
+    status: 'revoked',
+    revokedAt: serverTimestamp(),
+  });
+}
+
+// Accept an invite by 6-char code. Looks up the pending share, asserts
+// the email matches the accepting user (case-insensitive), and stamps
+// the invitee's uid so future reads know it belongs to them. Throws
+// with a UI-friendly message on each failure mode.
+export async function acceptShareInvite(input: {
+  uid: string;
+  email: string | null;
+  inviteCode: string;
+}): Promise<PetShare> {
+  const code = input.inviteCode.trim().toLowerCase();
+  if (code.length !== 6) {
+    throw new Error('Invite codes are 6 characters. Double-check what was sent.');
+  }
+  const q = query(
+    petSharesCol(),
+    where('inviteCode', '==', code),
+    where('status', '==', 'pending'),
+    limit(1),
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) {
+    throw new Error('No pending invite with that code. Ask the sender for a fresh link.');
+  }
+  const shareDoc = snap.docs[0];
+  const data = shareDoc.data();
+  const inviteeEmail = (data.inviteeEmail ?? '').toLowerCase();
+  if (input.email && inviteeEmail && inviteeEmail !== input.email.toLowerCase()) {
+    throw new Error(
+      `This invite was sent to ${inviteeEmail}. Sign in with that account to accept.`,
+    );
+  }
+  await updateDoc(doc(petSharesCol(), shareDoc.id), {
+    inviteeUid: input.uid,
+    status: 'accepted',
+    acceptedAt: serverTimestamp(),
+  });
+  const after = await getDoc(doc(petSharesCol(), shareDoc.id));
+  return shapeShare(after.id, after.data() ?? {});
+}
+
+// Live stream of shares the user OWNS for a given pet. Used by the
+// pet profile to show who has access.
+export function watchSharesForPet(
+  petId: string,
+  cb: (shares: PetShare[]) => void,
+): Unsubscribe {
+  const q = query(
+    petSharesCol(),
+    where('petId', '==', petId),
+    orderBy('createdAt', 'desc'),
+  );
+  return onSnapshot(q, snap => {
+    cb(snap.docs.map(d => shapeShare(d.id, d.data())));
+  });
+}
+
+// Live stream of shares the user RECEIVED (i.e. they're the invitee).
+// Used by useData() to surface shared pets in the user's home.
+export function watchSharesReceived(uid: string, cb: (shares: PetShare[]) => void): Unsubscribe {
+  const q = query(
+    petSharesCol(),
+    where('inviteeUid', '==', uid),
+    where('status', '==', 'accepted'),
+  );
+  return onSnapshot(q, snap => {
+    cb(snap.docs.map(d => shapeShare(d.id, d.data())));
+  });
+}
+
+// Live stream of every share the user OWNS — across every pet. Used
+// by the Settings → Manage people screen so the user has a single
+// place to see who has access to what.
+export function watchOutgoingShares(
+  ownerUid: string,
+  cb: (shares: PetShare[]) => void,
+): Unsubscribe {
+  const q = query(
+    petSharesCol(),
+    where('ownerUid', '==', ownerUid),
+    orderBy('createdAt', 'desc'),
+  );
+  return onSnapshot(q, snap => {
+    cb(snap.docs.map(d => shapeShare(d.id, d.data())));
+  });
+}
+
 // --- Pets ---
 
 export function watchPets(uid: string, cb: (pets: Pet[]) => void): Unsubscribe {
@@ -190,7 +571,7 @@ async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise
   let to: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
     to = setTimeout(
-      () => reject(new Error(`${label} timed out after ${ms / 1000}s — Firestore is not reaching the server. Check console for [firebase] logs and your network.`)),
+      () => reject(new Error(`${label} timed out after ${ms / 1000}s. Firestore is not reaching the server. Check console for [firebase] logs and your network.`)),
       ms,
     );
   });

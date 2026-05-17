@@ -22,7 +22,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // Hand off from the native splash to the JS-side AnimatedSplash as soon as
 // the JS bundle is parsed. The AnimatedSplash uses the same teal background,
-// so the user sees a continuous teal screen — the paws and wordmark animate
+// so the user sees a continuous teal screen. The paws and wordmark animate
 // in via JS while auth resolves in the background.
 const HANDOFF_MS = 100;
 setTimeout(() => {
@@ -30,7 +30,7 @@ setTimeout(() => {
 }, HANDOFF_MS);
 
 function RootNav() {
-  const { user, initializing } = useAuth();
+  const { user, profile, initializing } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   const [splashUnmounted, setSplashUnmounted] = useState(false);
@@ -45,16 +45,27 @@ function RootNav() {
   useEffect(() => {
     if (initializing) return;
     const inAuthGroup = segments[0] === '(auth)';
+    const inOnboarding = segments[0] === 'onboarding';
     if (!user && !inAuthGroup) {
       router.replace('/(auth)/sign-in');
-    } else if (user && inAuthGroup) {
-      router.replace('/(tabs)');
+      return;
     }
-  }, [user, initializing, segments]);
+    if (user && inAuthGroup) {
+      router.replace('/(tabs)');
+      return;
+    }
+    // First-time users (or anyone whose profile flag isn't true yet)
+    // get the 4-step onboarding wizard before the tabs. Once they
+    // finish (or skip), markOnboardingComplete flips the flag and the
+    // detour stops firing on subsequent sign-ins.
+    if (user && profile && !profile.onboardingCompleted && !inOnboarding && !inAuthGroup) {
+      router.replace('/onboarding');
+    }
+  }, [user, profile, initializing, segments]);
 
   return (
     <>
-      {/* Both splash and app backgrounds are warm/light now — dark status bar
+      {/* Both splash and app backgrounds are warm/light now, so dark status bar
           icons work for both states. */}
       <StatusBar style="dark" />
       <Stack
@@ -67,7 +78,7 @@ function RootNav() {
           headerShadowVisible: false,
           contentStyle: { backgroundColor: colors.bg },
           // Show only the back chevron, no text. Without this, iOS falls
-          // back to the previous route's title — which for screens pushed
+          // back to the previous route's title, which for screens pushed
           // from the tab navigator surfaces as the literal "(tabs)" group
           // name. `minimal` matches what most native iOS apps do.
           headerBackTitle: 'Back',
@@ -84,21 +95,30 @@ function RootNav() {
         <Stack.Screen name="reminder/add" options={{ title: 'New reminder', presentation: 'modal' }} />
         <Stack.Screen name="medication/add" options={{ title: 'Add medication', presentation: 'modal' }} />
         <Stack.Screen name="medication/[id]" options={{ title: 'Medication' }} />
-        <Stack.Screen name="vaccine/add" options={{ title: 'Add vaccine', presentation: 'modal' }} />
-        <Stack.Screen name="vaccine/edit/[id]" options={{ title: 'Edit vaccine', presentation: 'modal' }} />
+        <Stack.Screen name="vaccine/add" options={{ title: 'Add vaccine record', presentation: 'modal' }} />
+        <Stack.Screen name="vaccine/edit/[id]" options={{ title: 'Edit vaccine record', presentation: 'modal' }} />
         <Stack.Screen name="vaccine/scan" options={{ title: 'Scan vaccine', presentation: 'modal' }} />
         <Stack.Screen name="invoice/scan" options={{ title: 'Scan vet invoice', presentation: 'modal' }} />
         <Stack.Screen name="document/scan" options={{ title: 'Scan Document', presentation: 'modal' }} />
         <Stack.Screen name="document/upload" options={{ title: 'Add document', presentation: 'modal' }} />
         <Stack.Screen name="document/[id]" options={{ title: 'Document' }} />
         <Stack.Screen name="paywall" options={{ headerShown: false, presentation: 'modal' }} />
-        <Stack.Screen name="settings" options={{ title: 'Settings' }} />
+        <Stack.Screen name="support/index" options={{ title: 'Support' }} />
+        <Stack.Screen name="support/[id]" options={{ title: 'Ticket' }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
+        <Stack.Screen name="data/export" options={{ title: 'Your data' }} />
+        <Stack.Screen name="pet/share/[id]" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="pet/care/[id]" options={{ title: 'Care instructions', presentation: 'modal' }} />
+        <Stack.Screen name="settings/notifications" options={{ title: 'Notifications' }} />
+        <Stack.Screen name="share/accept" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="share/manage" options={{ title: 'Manage people' }} />
+        <Stack.Screen name="routines/[petId]" options={{ title: 'Routines' }} />
       </Stack>
 
       {!splashUnmounted && (
         <AnimatedSplash
           // Hold the splash until BOTH auth has resolved AND custom fonts
-          // are loaded — otherwise the first frame after dismiss flashes
+          // are loaded. Otherwise the first frame after dismiss flashes
           // system fonts before the Google fonts swap in.
           ready={!initializing && fontsLoaded}
           onHidden={() => setSplashUnmounted(true)}

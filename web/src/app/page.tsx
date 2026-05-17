@@ -47,8 +47,8 @@ const FREE_FEATURES = [
 
 const PLUS_FEATURES = [
   "Unlimited pets",
-  "Unlimited document uploads",
-  "Unlimited Smart Scan / OCR",
+  "Unlimited document storage",
+  "Smart Scan for vaccine records and documents",
   "PDF exports for vets, sitters, boarding, emergencies",
   "Advanced reminder schedules",
   "Family & caregiver sharing (coming soon)",
@@ -143,59 +143,99 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="mt-12 grid gap-6 md:grid-cols-2 max-w-4xl">
-              <div className="rounded-2xl border border-border bg-surface p-6">
-                <div className="flex items-baseline justify-between">
-                  <h3 className="font-bold text-xl">Free</h3>
-                  <span className="text-sm text-muted">$0</span>
-                </div>
-                <p className="text-sm text-muted mt-1">
-                  Real value with no card on file.
-                </p>
-                <ul className="mt-6 space-y-2 text-sm">
-                  {FREE_FEATURES.map((f) => (
-                    <li key={f} className="flex gap-2">
-                      <span className="text-primary mt-0.5">✓</span>
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Link href="/sign-in?mode=signup" className="mt-8 block">
-                  <Button variant="outline" className="w-full">
-                    Start free
-                  </Button>
+            {/* Plus features card — single shared list above the three plan tiles */}
+            <div className="mt-12 rounded-2xl border border-border bg-surface p-6 max-w-4xl">
+              <div className="flex items-baseline justify-between">
+                <h3 className="font-bold text-xl">PawProof Plus includes</h3>
+                <Link href="/sign-in?mode=signup" className="text-sm font-semibold text-primary hover:underline">
+                  Start free trial →
                 </Link>
+              </div>
+              <ul className="mt-5 grid gap-2 text-sm sm:grid-cols-2">
+                {PLUS_FEATURES.map((f) => (
+                  <li key={f} className="flex gap-2">
+                    <span className="text-primary mt-0.5">✓</span>
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Three plan tiles. Yearly tile is the visual anchor: bigger
+                border, primary background, "Best value" badge. */}
+            <div className="mt-6 grid gap-4 lg:grid-cols-3 max-w-4xl">
+              <div className="relative rounded-2xl border-2 border-primary bg-primary-soft/40 p-6 lg:order-1">
+                <span className="absolute -top-3 left-6 rounded-full bg-primary px-3 py-1 text-xs font-bold text-white uppercase tracking-wider">
+                  Best value · Save 33%
+                </span>
+                <h3 className="font-bold text-lg">Yearly</h3>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-3xl font-bold">$39.99</span>
+                  <span className="text-sm text-muted">/year</span>
+                </div>
+                <div className="text-sm text-muted mt-1">$3.33/month, billed yearly</div>
+                <Link href="/sign-in?mode=signup" className="mt-6 block">
+                  <Button className="w-full">Start 7-day free trial</Button>
+                </Link>
+                <p className="mt-2 text-center text-xs text-muted">
+                  Then $39.99/year. Cancel anytime.
+                </p>
               </div>
 
-              <div className="rounded-2xl border-2 border-primary bg-primary-soft/40 p-6 relative">
-                <span className="absolute -top-3 right-6 rounded-full bg-primary px-3 py-1 text-xs font-bold text-white">
-                  Most popular
-                </span>
-                <div className="flex items-baseline justify-between">
-                  <h3 className="font-bold text-xl">PawProof Plus</h3>
-                  <span className="text-sm text-muted">
-                    <span className="text-foreground font-semibold">$4.99</span> / mo
-                  </span>
+              <div className="rounded-2xl border border-border bg-surface p-6 lg:order-2">
+                <h3 className="font-bold text-lg">Monthly</h3>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-3xl font-bold">$4.99</span>
+                  <span className="text-sm text-muted">/month</span>
                 </div>
-                <p className="text-sm text-muted mt-1">
-                  Keep every pet&apos;s care organized without the manual
-                  work.
-                </p>
-                <ul className="mt-6 space-y-2 text-sm">
-                  {PLUS_FEATURES.map((f) => (
-                    <li key={f} className="flex gap-2">
-                      <span className="text-primary mt-0.5">✓</span>
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Link href="/sign-in?mode=signup" className="mt-8 block">
-                  <Button className="w-full">Start PawProof Plus</Button>
+                <div className="text-sm text-muted mt-1">Try it month to month</div>
+                <Link href="/sign-in?mode=signup" className="mt-6 block">
+                  <Button variant="outline" className="w-full">
+                    Start 7-day free trial
+                  </Button>
                 </Link>
-                <p className="mt-3 text-center text-xs text-muted">
-                  7-day free trial. Cancel anytime. $39.99/yr available (save 33%).
+                <p className="mt-2 text-center text-xs text-muted">
+                  Then $4.99/month. Cancel anytime.
                 </p>
               </div>
+
+              <div className="relative rounded-2xl border border-border bg-surface p-6 lg:order-3">
+                <span className="absolute -top-3 right-6 rounded-full bg-white border border-primary/40 px-3 py-1 text-xs font-bold text-primary-dark uppercase tracking-wider">
+                  Best for multi-pet homes
+                </span>
+                <h3 className="font-bold text-lg">Lifetime</h3>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-3xl font-bold">$89.99</span>
+                  <span className="text-sm text-muted">one-time</span>
+                </div>
+                <div className="text-sm text-muted mt-1">Pay once, keep forever</div>
+                <Link href="/sign-in?mode=signup" className="mt-6 block">
+                  <Button variant="outline" className="w-full">
+                    Get Lifetime
+                  </Button>
+                </Link>
+                <p className="mt-2 text-center text-xs text-muted">
+                  No subscription, no renewals.
+                </p>
+              </div>
+            </div>
+
+            {/* Free row */}
+            <div className="mt-6 rounded-2xl border border-dashed border-border-strong bg-surface p-6 max-w-4xl flex flex-col md:flex-row md:items-center gap-4 justify-between">
+              <div>
+                <div className="flex items-baseline gap-2">
+                  <h3 className="font-bold text-lg">Free</h3>
+                  <span className="text-sm text-muted">No card required</span>
+                </div>
+                <ul className="mt-3 text-sm text-muted flex flex-wrap gap-x-4 gap-y-1">
+                  {FREE_FEATURES.map((f) => (
+                    <li key={f}>• {f}</li>
+                  ))}
+                </ul>
+              </div>
+              <Link href="/sign-in?mode=signup" className="shrink-0">
+                <Button variant="ghost">Start free</Button>
+              </Link>
             </div>
           </div>
         </section>

@@ -5,16 +5,58 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '@/theme';
 import { fmtTime } from '@/utils/dates';
 import { JOURNAL_META } from '@/utils/petIcon';
+import { fmtDistance, type DistanceUnit } from '@/utils/units';
 import type { JournalEntry, Pet } from '@/types/models';
 
 interface Props {
   entry: JournalEntry;
   pet?: Pet;
+  /**
+   * Every pet this entry covers. Used for multi-pet entries so the
+   * subtitle reads "Yahzi, Moqui, and Lovie" instead of just the first
+   * one. When omitted we fall back to `pet`.
+   */
+  pets?: Pet[];
   showPet?: boolean;
+  /** Distance unit for walk rows. Defaults to mi. */
+  distanceUnit?: DistanceUnit;
+  // When set, entries logged by anyone OTHER than this uid get their
+  // actorName surfaced as "by Noel". Owner-logged entries (actorUid ===
+  // ownerUid) stay clean. Passing undefined disables attribution.
+  ownerUid?: string;
 }
 
-export function TimelineRow({ entry, pet, showPet }: Props) {
+function joinPetNames(pets: Pet[]): string {
+  const names = pets.map(p => p.name);
+  if (names.length === 0) return '';
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+}
+
+export function TimelineRow({ entry, pet, pets, showPet, distanceUnit = 'mi', ownerUid }: Props) {
   const meta = JOURNAL_META[entry.type] ?? JOURNAL_META.note;
+  // Only show "by X" when a caregiver wrote it, not the owner.
+  const byActor =
+    entry.actorUid && entry.actorName && ownerUid && entry.actorUid !== ownerUid
+      ? entry.actorName
+      : null;
+
+  const resolvedPets = pets && pets.length > 0 ? pets : pet ? [pet] : [];
+  const petLabel = showPet && resolvedPets.length > 0 ? joinPetNames(resolvedPets) : '';
+  const distanceLabel = entry.distanceMeters
+    ? fmtDistance(entry.distanceMeters, distanceUnit)
+    : '';
+  const durationLabel = entry.durationMin ? `${entry.durationMin} min` : '';
+
+  const subBits = [
+    petLabel,
+    entry.amount ?? '',
+    distanceLabel,
+    durationLabel,
+    byActor ? `by ${byActor}` : '',
+  ].filter(Boolean);
+
   return (
     <View style={styles.row}>
       <View style={[styles.iconWrap, { backgroundColor: meta.tint + '22' }]}>
@@ -25,12 +67,9 @@ export function TimelineRow({ entry, pet, showPet }: Props) {
           <Text style={styles.title} numberOfLines={1}>{entry.title}</Text>
           <Text style={styles.time}>{fmtTime(entry.timestamp)}</Text>
         </View>
-        {(showPet && pet) || entry.amount || entry.durationMin ? (
+        {subBits.length > 0 ? (
           <Text style={styles.sub} numberOfLines={1}>
-            {showPet && pet ? pet.name : ''}
-            {showPet && pet && (entry.amount || entry.durationMin) ? ' · ' : ''}
-            {entry.amount ?? ''}
-            {entry.durationMin ? `${entry.amount ? ' · ' : ''}${entry.durationMin} min` : ''}
+            {subBits.join(' · ')}
           </Text>
         ) : null}
         {entry.note ? <Text style={styles.note} numberOfLines={3}>{entry.note}</Text> : null}

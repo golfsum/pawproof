@@ -8,6 +8,7 @@ import { SectionHeader } from '@/components/SectionHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { TabsHeader } from '@/components/TabsHeader';
 import { Chip } from '@/components/Chip';
+import { MarkVaccineDoneSheet } from '@/components/MarkVaccineDoneSheet';
 import { useAuth } from '@/hooks/AuthProvider';
 import { useData } from '@/hooks/useData';
 import { useGate } from '@/hooks/useGate';
@@ -33,8 +34,10 @@ export default function RecordsScreen() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [kindFilter, setKindFilter] = useState<KindFilter>('all');
   const [petFilter, setPetFilter] = useState<string | null>(null);
-  // Track collapsed pet IDs so multi-pet accounts can fold sections shut —
-  // mirrors the pattern used in Reminders.
+  // Mark-vaccine-done sheet state. Driven from VaccineCard Renew taps.
+  const [renewTarget, setRenewTarget] = useState<{ petId: string; vaccineName: string } | null>(null);
+  // Track collapsed pet IDs so multi-pet accounts can fold sections shut.
+  // Mirrors the pattern used in Reminders.
   const [collapsedPets, setCollapsedPets] = useState<Set<string>>(new Set());
   const togglePet = (petId: string) =>
     setCollapsedPets(prev => {
@@ -73,7 +76,7 @@ export default function RecordsScreen() {
             ? []
             : vaccines
                 .filter(v => v.petId === pet.id)
-                .sort((a, b) => +new Date(b.dateGiven) - +new Date(a.dateGiven));
+                .sort(compareVaccinesByImportance);
         const petDocs =
           kindFilter === 'vaccines'
             ? []
@@ -88,16 +91,49 @@ export default function RecordsScreen() {
   const q = search.trim().toLowerCase();
   const matches = useMemo(() => {
     if (!q) return null;
+    // Match against every text-y field we have, plus a friendly
+    // formatted date so "May 2026" or "expired" hit the right
+    // records. Each haystack term is lowercase + falsy-safe.
+    const haystackVaccine = (v: VaccineRecord, petName: string): string =>
+      [
+        canonicalizeVaccineName(v.vaccineName),
+        v.vaccineName,
+        petName,
+        v.clinicName,
+        v.notes,
+        v.lotNumber,
+        v.dateGiven,
+        v.expirationDate,
+        v.dateGiven ? fmtDate(v.dateGiven) : '',
+        v.expirationDate ? fmtDate(v.expirationDate) : '',
+        v.expirationDate && (daysUntil(v.expirationDate) ?? 0) < 0 ? 'expired' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+    const haystackDoc = (d: PetDocument, petName: string): string =>
+      [
+        d.title,
+        petName,
+        d.kind,
+        d.kind.replace(/_/g, ' '),
+        d.ocrText,
+        d.createdAt ? fmtDate(d.createdAt) : '',
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
     const petMatches = pets.filter(p => p.name.toLowerCase().includes(q));
-    const vaccineMatches = vaccines.filter(
-      v =>
-        v.vaccineName.toLowerCase().includes(q) ||
-        (v.clinicName ?? '').toLowerCase().includes(q) ||
-        (v.notes ?? '').toLowerCase().includes(q),
-    );
-    const docMatches = documents.filter(
-      d => d.title.toLowerCase().includes(q) || (d.ocrText ?? '').toLowerCase().includes(q),
-    );
+    const vaccineMatches = vaccines.filter(v => {
+      const petName = pets.find(p => p.id === v.petId)?.name ?? '';
+      return haystackVaccine(v, petName).includes(q);
+    });
+    const docMatches = documents.filter(d => {
+      const petName = pets.find(p => p.id === d.petId)?.name ?? '';
+      return haystackDoc(d, petName).includes(q);
+    });
     const entryMatches = entries.filter(
       e => e.title.toLowerCase().includes(q) || (e.note ?? '').toLowerCase().includes(q),
     );
@@ -169,7 +205,12 @@ export default function RecordsScreen() {
 
       <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
         {q ? (
-          <SearchResults matches={matches!} pets={pets} onDeleteVaccine={handleDeleteVaccine} />
+          <SearchResults
+            matches={matches!}
+            pets={pets}
+            onDeleteVaccine={handleDeleteVaccine}
+            onMarkRenewed={(name, petId) => setRenewTarget({ vaccineName: name, petId })}
+          />
         ) : (
           <>
             <View style={styles.quickRow}>
@@ -178,7 +219,11 @@ export default function RecordsScreen() {
                 icon="scan-outline"
                 tint={colors.primary}
                 onPress={handleSmartScan}
-                badge={isPremium || ocrTrialAvailable ? undefined : 'Plus'}
+                // Trial-aware: surfaces "1 free scan" as a perk while
+                // the trial is unused, "Plus" after it's consumed,
+                // and no badge for premium users so the tile reads as
+                // unlocked.
+                badge={isPremium ? undefined : ocrTrialAvailable ? '1 free scan' : 'Plus'}
               />
               <QuickAdd label="Add Vaccine Record" icon="shield-checkmark-outline" tint={colors.success} onPress={handleAddVaccine} />
             </View>
@@ -202,6 +247,7 @@ export default function RecordsScreen() {
                       record={v}
                       pet={pets.find(p => p.id === v.petId)}
                       onDelete={handleDeleteVaccine}
+                      onMarkRenewed={(name, petId) => setRenewTarget({ vaccineName: name, petId })}
                     />
                   ))}
                 </View>
@@ -221,7 +267,7 @@ export default function RecordsScreen() {
                   <EmptyState
                     icon="folder-open-outline"
                     title="No records yet"
-                    body="Tap Scan Document to OCR a vaccine record or invoice, or Add vaccine to enter one by hand."
+                    body="Add vaccine records manually or scan a document with Smart Scan."
                     cta={{ label: 'Scan Document', icon: 'scan-outline', onPress: handleSmartScan }}
                   />
                 )}
@@ -237,10 +283,16 @@ export default function RecordsScreen() {
                     collapsed={collapsedPets.has(group.pet.id)}
                     onToggle={() => togglePet(group.pet.id)}
                     onDeleteVaccine={handleDeleteVaccine}
+                    onMarkRenewed={(name, petId) => setRenewTarget({ vaccineName: name, petId })}
                     onViewAll={kind => setViewAll({ petId: group.pet.id, kind })}
                   />
                 ))}
-                {!filtersActive ? <OcrHintCard onScan={handleSmartScan} /> : null}
+                {!filtersActive ? (
+                  <OcrHintCard
+                    onScan={handleSmartScan}
+                    badge={isPremium ? null : ocrTrialAvailable ? 'trial' : 'plus'}
+                  />
+                ) : null}
               </>
             )}
           </>
@@ -251,6 +303,7 @@ export default function RecordsScreen() {
         data={modalData}
         onClose={() => setViewAll(null)}
         onDeleteVaccine={handleDeleteVaccine}
+        onMarkRenewed={(name, petId) => setRenewTarget({ vaccineName: name, petId })}
       />
 
       <FilterSheet
@@ -263,6 +316,13 @@ export default function RecordsScreen() {
         onChangePet={setPetFilter}
         onClear={() => { setKindFilter('all'); setPetFilter(null); }}
       />
+
+      <MarkVaccineDoneSheet
+        visible={renewTarget !== null}
+        onClose={() => setRenewTarget(null)}
+        petId={renewTarget?.petId ?? ''}
+        vaccineName={renewTarget?.vaccineName ?? ''}
+      />
     </Screen>
   );
 }
@@ -272,7 +332,16 @@ export default function RecordsScreen() {
 // A subtle "did you know?" card that sits below the per-pet sections to
 // surface the OCR feature when the user has already added some records.
 // Keeps the bottom of the screen feeling intentional instead of empty.
-function OcrHintCard({ onScan }: { onScan: () => void }) {
+function OcrHintCard({
+  onScan,
+  badge,
+}: {
+  onScan: () => void;
+  // 'trial' = user still has their free Smart Scan, surface it as a perk.
+  // 'plus' = trial spent, show that Smart Scan is part of Plus.
+  // null = premium user, no badge needed.
+  badge: 'trial' | 'plus' | null;
+}) {
   return (
     <Pressable
       onPress={onScan}
@@ -282,9 +351,20 @@ function OcrHintCard({ onScan }: { onScan: () => void }) {
         <Ionicons name="scan-outline" size={20} color={colors.primary} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={styles.hintTitle}>Scan a vaccine record</Text>
+        <View style={styles.hintTitleRow}>
+          <Text style={styles.hintTitle}>Save time with Smart Scan</Text>
+          {badge === 'trial' ? (
+            <View style={[styles.hintBadge, { backgroundColor: colors.successSoft }]}>
+              <Text style={[styles.hintBadgeText, { color: '#1E6C80' }]}>1 free scan</Text>
+            </View>
+          ) : badge === 'plus' ? (
+            <View style={[styles.hintBadge, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.hintBadgeText, { color: '#fff' }]}>Plus</Text>
+            </View>
+          ) : null}
+        </View>
         <Text style={styles.hintBody}>
-          We'll pull out dates, vaccines, and clinic info automatically — no typing required.
+          Scan vaccine records or vet documents and let PawProof pull out the key details.
         </Text>
       </View>
       <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
@@ -295,7 +375,7 @@ function OcrHintCard({ onScan }: { onScan: () => void }) {
 // ─── Per-pet section ──────────────────────────────────────────────────
 
 function PetSection({
-  pet, vaccines, documents, collapsed, onToggle, onDeleteVaccine, onViewAll,
+  pet, vaccines, documents, collapsed, onToggle, onDeleteVaccine, onMarkRenewed, onViewAll,
 }: {
   pet: Pet;
   vaccines: VaccineRecord[];
@@ -303,6 +383,7 @@ function PetSection({
   collapsed: boolean;
   onToggle: () => void;
   onDeleteVaccine: (id: string, name: string) => void;
+  onMarkRenewed: (vaccineName: string, petId: string) => void;
   onViewAll: (kind: 'vaccines' | 'documents') => void;
 }) {
   return (
@@ -339,7 +420,13 @@ function PetSection({
               />
               <View style={styles.list}>
                 {vaccines.slice(0, PREVIEW_LIMIT).map(v => (
-                  <VaccineCard key={v.id} record={v} pet={pet} onDelete={onDeleteVaccine} />
+                  <VaccineCard
+                    key={v.id}
+                    record={v}
+                    pet={pet}
+                    onDelete={onDeleteVaccine}
+                    onMarkRenewed={onMarkRenewed}
+                  />
                 ))}
               </View>
             </>
@@ -489,11 +576,12 @@ function FilterSheet({
 // ─── View all modal ───────────────────────────────────────────────────
 
 function ViewAllModal({
-  data, onClose, onDeleteVaccine,
+  data, onClose, onDeleteVaccine, onMarkRenewed,
 }: {
   data: { pet: Pet; kind: 'vaccines' | 'documents'; items: VaccineRecord[] | PetDocument[] } | null;
   onClose: () => void;
   onDeleteVaccine: (id: string, name: string) => void;
+  onMarkRenewed: (vaccineName: string, petId: string) => void;
 }) {
   return (
     <Modal animationType="slide" presentationStyle="pageSheet" visible={data !== null} onRequestClose={onClose}>
@@ -514,7 +602,13 @@ function ViewAllModal({
           <ScrollView contentContainerStyle={styles.modalScroll}>
             {data.kind === 'vaccines'
               ? (data.items as VaccineRecord[]).map(v => (
-                  <VaccineCard key={v.id} record={v} pet={data.pet} onDelete={onDeleteVaccine} />
+                  <VaccineCard
+                    key={v.id}
+                    record={v}
+                    pet={data.pet}
+                    onDelete={onDeleteVaccine}
+                    onMarkRenewed={onMarkRenewed}
+                  />
                 ))
               : (data.items as PetDocument[]).map(d => (
                   <DocumentCard key={d.id} doc={d} pet={data.pet} />
@@ -546,7 +640,14 @@ function QuickAdd({
   );
 }
 
-function VaccineCard({ record, pet, onDelete }: { record: VaccineRecord; pet?: Pet; onDelete?: (id: string, name: string) => void }) {
+function VaccineCard({
+  record, pet, onDelete, onMarkRenewed,
+}: {
+  record: VaccineRecord;
+  pet?: Pet;
+  onDelete?: (id: string, name: string) => void;
+  onMarkRenewed?: (vaccineName: string, petId: string) => void;
+}) {
   const router = useRouter();
   const days = record.expirationDate ? daysUntil(record.expirationDate) : null;
   let badge: { tone: 'success' | 'warning' | 'danger'; label: string } | null = null;
@@ -555,6 +656,10 @@ function VaccineCard({ record, pet, onDelete }: { record: VaccineRecord; pet?: P
     else if (days <= 30) badge = { tone: 'warning', label: `${days}d left` };
     else badge = { tone: 'success', label: `${days}d` };
   }
+  // Show the Renew action when the next dose is due or overdue. We
+  // hide it for fresh records to avoid encouraging duplicate entries.
+  const showRenew =
+    onMarkRenewed != null && record.expirationDate != null && days != null && days <= 30;
   return (
     <Pressable
       onPress={() => router.push({ pathname: '/vaccine/edit/[id]', params: { id: record.id } })}
@@ -565,12 +670,36 @@ function VaccineCard({ record, pet, onDelete }: { record: VaccineRecord; pet?: P
         <Ionicons name="shield-checkmark-outline" size={18} color={colors.success} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={styles.rowTitle}>{canonicalizeVaccineName(record.vaccineName)}</Text>
-        <Text style={styles.rowSub}>
-          {pet?.name ?? '—'}
-          {record.expirationDate ? ` · Expires ${fmtDate(record.expirationDate)}` : ''}
-          {' · '}Given {fmtDate(record.dateGiven)}
+        <View style={styles.vaccineTitleRow}>
+          <Text style={styles.rowTitle} numberOfLines={1}>
+            {canonicalizeVaccineName(record.vaccineName)}
+          </Text>
+          {days != null && days < 0 ? (
+            <View style={styles.expiredChip}>
+              <Text style={styles.expiredChipText}>EXPIRED</Text>
+            </View>
+          ) : null}
+        </View>
+        <Text style={styles.rowSub} numberOfLines={2}>
+          {pet?.name ?? '-'}
+          {' · Given '}
+          {fmtDate(record.dateGiven)}
+          {record.expirationDate
+            ? days != null && days < 0
+              ? ` · Expired ${fmtDate(record.expirationDate)}`
+              : ` · Expires ${fmtDate(record.expirationDate)}${record.expirationDerived ? ' (est)' : ''}`
+            : ''}
         </Text>
+        {showRenew ? (
+          <Pressable
+            onPress={() => onMarkRenewed!(record.vaccineName, record.petId)}
+            hitSlop={6}
+            style={({ pressed }) => [styles.renewLink, pressed && { opacity: 0.85 }]}
+          >
+            <Ionicons name="checkmark-circle-outline" size={14} color={colors.primary} />
+            <Text style={styles.renewLinkText}>Mark renewed</Text>
+          </Pressable>
+        ) : null}
       </View>
       {badge && (
         <View style={[styles.expirationBadge, badgeTone(badge.tone)]}>
@@ -599,7 +728,7 @@ function DocumentCard({ doc, pet }: { doc: PetDocument; pet?: Pet }) {
       </View>
       <View style={{ flex: 1 }}>
         <Text style={styles.rowTitle} numberOfLines={1}>{doc.title}</Text>
-        <Text style={styles.rowSub}>{pet?.name ?? '—'} · {fmtDate(doc.createdAt)}</Text>
+        <Text style={styles.rowSub}>{pet?.name ?? '-'} · {fmtDate(doc.createdAt)}</Text>
       </View>
       <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
     </Pressable>
@@ -616,11 +745,12 @@ interface SearchMatches {
 }
 
 function SearchResults({
-  matches, pets, onDeleteVaccine,
+  matches, pets, onDeleteVaccine, onMarkRenewed,
 }: {
   matches: SearchMatches;
   pets: Pet[];
   onDeleteVaccine: (id: string, name: string) => void;
+  onMarkRenewed: (vaccineName: string, petId: string) => void;
 }) {
   const { petMatches, vaccineMatches, docMatches, entryMatches } = matches;
   if (
@@ -631,7 +761,11 @@ function SearchResults({
   ) {
     return (
       <View style={{ paddingTop: spacing.lg }}>
-        <EmptyState icon="search-outline" title="No matches" body="Try a different search term." />
+        <EmptyState
+          icon="search-outline"
+          title="No records found"
+          body="Try searching by pet, vaccine, clinic, or document name."
+        />
       </View>
     );
   }
@@ -655,7 +789,13 @@ function SearchResults({
           <SectionHeader title="Vaccines" />
           <View style={{ paddingHorizontal: spacing.base, gap: spacing.sm }}>
             {vaccineMatches.map((v: VaccineRecord) => (
-              <VaccineCard key={v.id} record={v} pet={pets.find(p => p.id === v.petId)} onDelete={onDeleteVaccine} />
+              <VaccineCard
+                key={v.id}
+                record={v}
+                pet={pets.find(p => p.id === v.petId)}
+                onDelete={onDeleteVaccine}
+                onMarkRenewed={onMarkRenewed}
+              />
             ))}
           </View>
         </>
@@ -690,6 +830,36 @@ function SearchResults({
   );
 }
 
+// Importance-first sort: expired vaccines surface above the fold so
+// the user can act on them, then expiring-soon, then current sorted by
+// soonest expiration, then no-expiration entries by newest given
+// date. Replaces the prior "newest given first" sort that buried
+// expired records under unrelated freshly-scanned ones.
+function compareVaccinesByImportance(a: VaccineRecord, b: VaccineRecord): number {
+  const bucket = (v: VaccineRecord): number => {
+    if (!v.expirationDate) return 3; // no expiration
+    const days = daysUntil(v.expirationDate);
+    if (days == null) return 3;
+    if (days < 0) return 0;   // expired
+    if (days <= 60) return 1; // expiring soon
+    return 2;                  // current
+  };
+  const ba = bucket(a);
+  const bb = bucket(b);
+  if (ba !== bb) return ba - bb;
+  // Within a bucket:
+  //   expired: most recently expired first (most likely to be remembered)
+  //   expiring + current: soonest expiration first
+  //   no expiration: newest given date first
+  if (ba === 0) {
+    return +new Date(b.expirationDate as string) - +new Date(a.expirationDate as string);
+  }
+  if (ba === 1 || ba === 2) {
+    return +new Date(a.expirationDate as string) - +new Date(b.expirationDate as string);
+  }
+  return +new Date(b.dateGiven) - +new Date(a.dateGiven);
+}
+
 function badgeTone(tone: 'success' | 'warning' | 'danger') {
   return {
     backgroundColor:
@@ -711,7 +881,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  // Compact filter button — keeps the title row clean; turns primary-tinted
+  // Compact filter button. Keeps the title row clean; turns primary-tinted
   // when filters are applied so the user can spot it at a glance.
   filterBtn: {
     width: 36,
@@ -775,7 +945,7 @@ const styles = StyleSheet.create({
   },
   badgeText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.4 },
 
-  // Active filter chip strip — gives the user a single-tap way to clear
+  // Active filter chip strip: gives the user a single-tap way to clear
   // without re-opening the sheet.
   activeFilterRow: {
     marginHorizontal: spacing.base,
@@ -848,7 +1018,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  hintTitle: { fontSize: 14, fontFamily: fonts.body.semibold, color: colors.primaryDark },
+  hintTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  hintTitle: { fontSize: 14, fontFamily: fonts.body.semibold, color: colors.primaryDark, flexShrink: 1 },
+  hintBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  hintBadgeText: {
+    fontSize: 10,
+    fontFamily: fonts.body.semibold,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
   hintBody: { fontSize: 12, color: colors.primaryDark, marginTop: 2, lineHeight: 17, opacity: 0.85 },
 
   // Row components shared across previews + view-all modal
@@ -863,6 +1045,21 @@ const styles = StyleSheet.create({
   rowIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cardSubtle },
   rowTitle: { fontSize: 15, fontFamily: fonts.body.semibold, color: colors.text },
   rowSub: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  // Inline "Mark renewed" link on expiring vaccines. Sits under the
+  // sub-line so the card still feels like one tappable unit but the
+  // primary action stands out.
+  renewLink: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: colors.primarySoft,
+  },
+  renewLinkText: { fontSize: 12, fontFamily: fonts.body.semibold, color: colors.primary },
   docThumb: {
     width: 44,
     height: 44,
@@ -871,6 +1068,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.accentSoft,
     overflow: 'hidden',
+  },
+  vaccineTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  expiredChip: {
+    backgroundColor: colors.danger,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  expiredChipText: {
+    color: '#fff',
+    fontSize: 9,
+    fontFamily: fonts.body.semibold,
+    letterSpacing: 0.6,
   },
   expirationBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.pill },
   expirationText: { fontSize: 11, fontWeight: '700' },

@@ -239,7 +239,7 @@ function QrShareModal({
           </View>
 
           <Text style={styles.qrHint}>
-            Point any iPhone/Android camera at the code. The recipient gets a tap-to-open download link — no app required.
+            Point any iPhone/Android camera at the code. The recipient gets a tap-to-open download link, no app required.
           </Text>
 
           <Pressable

@@ -12,7 +12,7 @@ export async function uploadFile(uid: string, localUri: string, folder: string, 
     throw new Error('You must be signed in to upload files.');
   }
   if (auth.currentUser.uid !== uid) {
-    throw new Error('Auth user mismatch — refusing to upload.');
+    throw new Error('Auth user mismatch, refusing to upload.');
   }
 
   let blob: Blob;
@@ -54,9 +54,9 @@ function humanizeStorageError(code?: string, serverResp?: string, fallback?: str
   if (c.includes('quota-exceeded')) return 'Storage quota exceeded for this project.';
   if (c.includes('canceled')) return 'Upload was cancelled.';
   if (c.includes('object-not-found')) return 'Storage object missing after upload.';
-  if (c.includes('retry-limit-exceeded')) return 'Upload timed out — check your network.';
+  if (c.includes('retry-limit-exceeded')) return 'Upload timed out. Check your network.';
   if (serverResp) {
-    // Firebase puts the real error here for storage/unknown — e.g.
+    // Firebase puts the real error here for storage/unknown. E.g.
     // "Bucket pawproof-foo.firebasestorage.app does not exist."
     return serverResp.slice(0, 300);
   }
@@ -79,7 +79,7 @@ export async function uploadCompressedPhoto(uid: string, localUri: string, folde
 }
 
 export async function uriToBlob(uri: string): Promise<Blob> {
-  // Use XHR — fetch(file://) is unreliable on some RN runtimes.
+  // Use XHR. fetch(file://) is unreliable on some RN runtimes.
   return new Promise<Blob>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.onload = () => resolve(xhr.response);
@@ -103,6 +103,6 @@ export async function deleteUploadedFile(downloadUrl: string): Promise<void> {
     const path = decodeURIComponent(match[1]);
     await deleteObject(ref(storage, path));
   } catch {
-    // Best effort — broken URL or already deleted.
+    // Best effort, broken URL or already deleted.
   }
 }

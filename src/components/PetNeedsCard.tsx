@@ -5,12 +5,16 @@ import { differenceInDays } from 'date-fns';
 import { PetAvatar } from './PetAvatar';
 import { colors, radius, spacing } from '@/theme';
 import { fmtDate, isOverdue, daysUntil } from '@/utils/dates';
-import { REMINDER_META } from '@/utils/petIcon';
+import {
+  getReminderCategory,
+  getReminderConfig,
+  getReminderName,
+} from '@/utils/reminderCategory';
 import { generateInsights } from '@/utils/insights';
 import { canonicalizeReminderTitle } from '@/utils/vaccineNames';
-import type { Pet, Reminder, JournalEntry } from '@/types/models';
+import type { Pet, Reminder, JournalEntry, VaccineRecord } from '@/types/models';
 
-/** A single thing demanding attention on a pet — could be a reminder
+/** A single thing demanding attention on a pet. Could be a reminder
  *  past due, a reminder due today, or a behavioural pattern from the
  *  insights system (no walk in 3 days, missed meal, recurring symptom, etc). */
 export interface NeedsItem {
@@ -19,11 +23,11 @@ export interface NeedsItem {
   tint: string;
   title: string;
   detail: string;
-  /** Sort key — lower numbers surface first inside the tree. */
+  /** Sort key: lower numbers surface first inside the tree. */
   weight: number;
   /** Reminders carry their source so the parent can wire Mark Done. */
   reminder?: Reminder;
-  /** True for vaccine reminders — they suppress the green check button. */
+  /** True for vaccine reminders. They suppress the green check button. */
   isVaccine?: boolean;
 }
 
@@ -36,24 +40,27 @@ export function buildPetNeedsItems(
   pet: Pet,
   reminders: Reminder[],
   entries: JournalEntry[],
+  vaccines: VaccineRecord[] = [],
 ): NeedsItem[] {
   const items: NeedsItem[] = [];
   const petReminders = reminders.filter(r => r.petId === pet.id && !r.isCompleted);
 
   // Overdue reminders
   for (const r of petReminders.filter(r => isOverdue(r.dueDate))) {
-    const meta = REMINDER_META[r.type] ?? REMINDER_META.custom;
+    const config = getReminderConfig(r);
+    const category = getReminderCategory(r);
     const days = Math.abs(differenceInDays(new Date(), new Date(r.dueDate)));
-    const isVaccine = r.type === 'vaccination';
-    const title = isVaccine ? canonicalizeReminderTitle(r.title) : r.title;
-    // Vaccines are "expired" past their due date, not "overdue" — softer
+    const isVaccine = category === 'vaccination';
+    const rawName = getReminderName(r);
+    const title = isVaccine ? canonicalizeReminderTitle(rawName) : rawName;
+    // Vaccines are "expired" past their due date, not "overdue". Softer
     // and more accurate language for renewals that may be months/years late.
     const detail = isVaccine
       ? `Expired ${fmtDate(r.dueDate)}`
       : days === 0 ? 'Overdue' : days === 1 ? 'Overdue 1 day' : `Overdue ${days} days`;
     items.push({
       id: `rem-${r.id}`,
-      icon: meta.icon as any,
+      icon: config.icon as any,
       tint: colors.danger,
       title,
       detail,
@@ -69,22 +76,25 @@ export function buildPetNeedsItems(
     const d = daysUntil(r.dueDate);
     return d != null && d === 0;
   })) {
-    const meta = REMINDER_META[r.type] ?? REMINDER_META.custom;
-    const title = r.type === 'vaccination' ? canonicalizeReminderTitle(r.title) : r.title;
+    const config = getReminderConfig(r);
+    const category = getReminderCategory(r);
+    const isVaccine = category === 'vaccination';
+    const rawName = getReminderName(r);
+    const title = isVaccine ? canonicalizeReminderTitle(rawName) : rawName;
     items.push({
       id: `rem-${r.id}`,
-      icon: meta.icon as any,
+      icon: config.icon as any,
       tint: colors.warning,
       title,
       detail: 'Due today',
       weight: 100,
       reminder: r,
-      isVaccine: r.type === 'vaccination',
+      isVaccine,
     });
   }
 
   // Insights (only the warn/danger ones)
-  const insights = generateInsights(pet, entries);
+  const insights = generateInsights(pet, entries, vaccines, reminders);
   for (const i of insights) {
     if (i.tone !== 'warning' && i.tone !== 'danger') continue;
     items.push({
@@ -172,7 +182,7 @@ export function PetNeedsCard({ pet, items, onMarkDone, onItemPress, onViewAll }:
                 <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
                 <Text style={styles.itemDetail} numberOfLines={2}>{item.detail}</Text>
               </Pressable>
-              {/* Vaccine reminders are informational — no green check.
+              {/* Vaccine reminders are informational, no green check.
                   Daily-task reminders get a Mark Done button. */}
               {item.reminder && !item.isVaccine && onMarkDone ? (
                 <Pressable

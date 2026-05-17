@@ -1,5 +1,5 @@
-import { differenceInDays, startOfDay, subDays } from 'date-fns';
-import type { JournalEntry, Pet, SymptomSeverity } from '@/types/models';
+import { differenceInDays, formatDistanceToNowStrict, startOfDay, subDays } from 'date-fns';
+import type { JournalEntry, Pet, Reminder, SymptomSeverity, VaccineRecord } from '@/types/models';
 
 export interface Insight {
   /** Unique key for React. */
@@ -13,18 +13,26 @@ export interface Insight {
 /**
  * Generate lightweight care insights from a pet's recent journal entries.
  *
- * No ML, no diagnosis — just counts, streaks, and "missing for N days" checks
+ * No ML, no diagnosis. Just counts, streaks, and "missing for N days" checks
  * that surface things worth a glance:
  *   - Symptom recurrence (3+ of the same in 14 days)
  *   - Missed meal streak (no fed log in 24h+)
  *   - Walk streak (no walks in 3+ days for dogs)
  *   - Recent activity counters (7-day rollups)
  */
-export function generateInsights(pet: Pet, entries: JournalEntry[]): Insight[] {
+export function generateInsights(
+  pet: Pet,
+  entries: JournalEntry[],
+  vaccines: VaccineRecord[] = [],
+  reminders: Reminder[] = [],
+): Insight[] {
   const insights: Insight[] = [];
   const now = new Date();
   const last7 = entries.filter(e => differenceInDays(now, new Date(e.timestamp)) < 7);
   const last14 = entries.filter(e => differenceInDays(now, new Date(e.timestamp)) < 14);
+  const last30 = entries.filter(e => differenceInDays(now, new Date(e.timestamp)) < 30);
+  const petVaccines = vaccines.filter(v => v.petId === pet.id);
+  const petReminders = reminders.filter(r => r.petId === pet.id);
 
   // ── Symptom recurrence ──
   const symptoms = last14.filter(e => e.type === 'symptom');
@@ -101,6 +109,107 @@ export function generateInsights(pet: Pet, entries: JournalEntry[]): Insight[] {
     }
   }
 
+  // ── Meal count this week ──
+  // If the user is actively logging meals (>= 3 in the last 7 days)
+  // but the count is well below the typical 2/day, flag it. Avoids
+  // false positives for users who only log meals occasionally.
+  const fedCount = last7.filter(e => e.type === 'fed').length;
+  if (fedCount >= 3 && fedCount < 10) {
+    const expected = 14; // 2 meals/day
+    const missed = expected - fedCount;
+    if (missed >= 3) {
+      insights.push({
+        id: 'meal-gap',
+        tone: 'info',
+        icon: 'restaurant-outline',
+        title: 'Meal logging gap',
+        body: `${pet.name} has ${fedCount} meals logged this week. If you usually log 2/day, ${missed} may be missing.`,
+      });
+    }
+  }
+
+  // ── Medication adherence ──
+  // For each medication reminder on this pet, check whether a med
+  // entry was logged at roughly the expected times. Simple v1: if the
+  // reminder is daily and there's no med log in the last 36h, flag.
+  const medReminders = petReminders.filter(
+    r => r.type === 'medication' && !r.isCompleted && r.repeatType === 'daily',
+  );
+  if (medReminders.length > 0) {
+    const lastMed = entries.find(e => e.type === 'medication');
+    const hoursSince = lastMed
+      ? (now.getTime() - new Date(lastMed.timestamp).getTime()) / 36e5
+      : Infinity;
+    if (hoursSince > 36) {
+      insights.push({
+        id: 'med-gap',
+        tone: 'warning',
+        icon: 'medkit-outline',
+        title: 'Medication not logged recently',
+        body: `${pet.name} has a daily medication reminder but no medication log in the last day and a half. This may be worth watching.`,
+      });
+    }
+  }
+
+  // Missed dose count this month (cheap check, doesn't try to know
+  // which med). If they have any daily med reminder and < 20 med logs
+  // in last 30 days, surface it.
+  if (medReminders.length > 0) {
+    const medsThisMonth = last30.filter(e => e.type === 'medication').length;
+    if (medsThisMonth > 0 && medsThisMonth < 20) {
+      const expected = 30;
+      const gap = expected - medsThisMonth;
+      if (gap >= 5) {
+        insights.push({
+          id: 'med-month-gap',
+          tone: 'info',
+          icon: 'medkit-outline',
+          title: 'Medication coverage',
+          body: `${gap} days of medication logs may be missing this month. Use Quick Log → Meds to keep the record up to date.`,
+        });
+      }
+    }
+  }
+
+  // ── Vaccine expiration windows ──
+  for (const v of petVaccines) {
+    if (!v.expirationDate) continue;
+    const days = differenceInDays(new Date(v.expirationDate), now);
+    if (days < 0) {
+      insights.push({
+        id: `vax-expired-${v.id}`,
+        tone: 'danger',
+        icon: 'shield-checkmark-outline',
+        title: `${v.vaccineName} expired`,
+        body: `${pet.name}'s ${v.vaccineName} vaccine expired ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} ago. Schedule a renewal with your vet.`,
+      });
+    } else if (days <= 60) {
+      insights.push({
+        id: `vax-soon-${v.id}`,
+        tone: days <= 30 ? 'warning' : 'info',
+        icon: 'shield-checkmark-outline',
+        title: `${v.vaccineName} expires soon`,
+        body: `${pet.name}'s ${v.vaccineName} vaccine expires in ${days} day${days === 1 ? '' : 's'}.`,
+      });
+    }
+  }
+
+  // ── Grooming gap ──
+  const groomings = entries.filter(e => e.type === 'grooming');
+  if (groomings.length > 0) {
+    const lastGroom = groomings[0];
+    const days = differenceInDays(now, new Date(lastGroom.timestamp));
+    if (days >= 45) {
+      insights.push({
+        id: 'groom-gap',
+        tone: 'info',
+        icon: 'cut-outline',
+        title: 'Grooming overdue',
+        body: `No grooming logged for ${pet.name} in ${days} days. Time for a bath, brush, or nail trim?`,
+      });
+    }
+  }
+
   // ── Positive streak ──
   const fedThisWeek = last7.filter(e => e.type === 'fed').length;
   const walkedThisWeek = last7.filter(e => e.type === 'walk').length;
@@ -118,7 +227,7 @@ export function generateInsights(pet: Pet, entries: JournalEntry[]): Insight[] {
 }
 
 /**
- * Aggregate counts for a date range — used by both insights and the
+ * Aggregate counts for a date range, used by both insights and the
  * monthly summary screen.
  */
 export interface ActivitySummary {

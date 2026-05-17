@@ -39,7 +39,7 @@ export function fmtDay(value: string | Date): string {
 
 export function fmtDate(value: string | Date | null | undefined): string {
   const d = toDate(value ?? null);
-  if (!d) return '—';
+  if (!d) return '-';
   return format(d, 'MMM d, yyyy');
 }
 
