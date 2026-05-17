@@ -71,7 +71,7 @@ export function MobileShell({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
   // Auth guard. Unauthenticated visitors get bounced to /sign-in;
@@ -167,9 +167,22 @@ export function MobileShell({
               {(user.email ?? "?")[0]?.toUpperCase()}
             </div>
             <div className="ms-side-account-text">
-              <span className="ms-side-account-email">{user.email ?? "Signed in"}</span>
-              <span className="ms-side-account-plan">
-                <Sparkles size={11} /> Plus member
+              <span className="ms-side-account-email">
+                {profile?.displayName ?? user.email ?? "Signed in"}
+              </span>
+              <span
+                className={cn(
+                  "ms-side-account-plan",
+                  profile?.isPremium && "ms-side-account-plan-plus",
+                )}
+              >
+                {profile?.isPremium ? (
+                  <>
+                    <Sparkles size={11} /> Plus member
+                  </>
+                ) : (
+                  "Free plan"
+                )}
               </span>
             </div>
           </div>
@@ -521,10 +534,13 @@ export function MobileShell({
           align-items: center;
           gap: 4px;
           font-size: 10px;
-          color: #2a8fa8;
+          color: rgba(60, 60, 67, 0.55);
           font-weight: 600;
           letter-spacing: 0.2px;
           margin-top: 1px;
+        }
+        .ms-side-account-plan-plus {
+          color: #2a8fa8;
         }
         .ms-side-signout {
           display: inline-flex;
