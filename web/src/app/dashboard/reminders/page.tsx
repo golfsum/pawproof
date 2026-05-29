@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlarmClock,
   Bug,
@@ -8,6 +8,7 @@ import {
   Footprints,
   Heart,
   Pill,
+  Plus,
   Scissors,
   Search,
   ShieldCheck,
@@ -15,8 +16,10 @@ import {
   X,
 } from "lucide-react";
 import { useUserData } from "@/lib/use-user-data";
+import { useAuth } from "@/lib/auth-context";
 import { daysUntil, isOverdue } from "@/lib/dates";
 import { fmtDate } from "@/lib/utils";
+import { ReminderForm } from "@/components/reminder-form";
 import {
   Card,
   Chip,
@@ -80,9 +83,20 @@ function reminderName(r: Reminder): string {
 
 export default function RemindersPage() {
   const { pets, reminders, loading } = useUserData();
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [petFilter, setPetFilter] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+
+  // The dashboard "Add reminder" CTA links here with ?new=1 so the
+  // form opens straight away. Read it off the URL on mount (client
+  // only) to avoid a Suspense boundary around useSearchParams.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("new") === "1") {
+      setFormOpen(true);
+    }
+  }, []);
 
   const active = useMemo(() => reminders.filter((r) => !r.isCompleted), [reminders]);
 
@@ -154,10 +168,16 @@ export default function RemindersPage() {
 
   return (
     <>
-      <PageTitle
-        title="Reminders"
-        subtitle={`${pets.length} pet${pets.length === 1 ? "" : "s"} · ${active.length} active reminder${active.length === 1 ? "" : "s"}`}
-      />
+      <div className="rem-header">
+        <PageTitle
+          title="Reminders"
+          subtitle={`${pets.length} pet${pets.length === 1 ? "" : "s"} · ${active.length} active reminder${active.length === 1 ? "" : "s"}`}
+        />
+        <button type="button" className="new-btn" onClick={() => setFormOpen(true)}>
+          <Plus size={16} />
+          New reminder
+        </button>
+      </div>
 
       <div className="search-wrap">
         <Search size={16} color="rgba(60, 60, 67, 0.45)" />
@@ -234,8 +254,13 @@ export default function RemindersPage() {
           title={active.length === 0 ? "No reminders yet" : "No matches"}
           body={
             active.length === 0
-              ? "Add reminders for meals, walks, meds, grooming, vaccines, and vet visits from the iOS app."
+              ? "Add reminders for meals, walks, meds, grooming, vaccines, and vet visits — here on the web or in the iOS app."
               : "Try clearing filters or searching for a different term."
+          }
+          action={
+            active.length === 0
+              ? { label: "New reminder", onClick: () => setFormOpen(true) }
+              : undefined
           }
         />
       ) : (
@@ -299,12 +324,43 @@ export default function RemindersPage() {
       )}
 
       <p className="helper">
-        Use the PawProof mobile app to log meals, walks, meds, and Smart Scan
-        documents. Web is best for reviewing records, exporting PDFs, and
-        managing your account.
+        Add and review reminders here. Use the PawProof mobile app to log meals,
+        walks, meds, and Smart Scan documents, and to get push notifications.
       </p>
 
+      <ReminderForm
+        uid={user?.uid ?? ""}
+        pets={pets}
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+      />
+
       <style jsx>{`
+        .rem-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+        }
+        .new-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          flex-shrink: 0;
+          margin-top: 8px;
+          padding: 9px 14px;
+          border-radius: 999px;
+          background: #2a8fa8;
+          color: #fff;
+          font-size: 13px;
+          font-weight: 700;
+          border: none;
+          cursor: pointer;
+          font-family: inherit;
+        }
+        .new-btn:hover {
+          background: #1e6c80;
+        }
         .search-wrap {
           display: flex;
           align-items: center;

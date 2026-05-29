@@ -394,7 +394,7 @@ export default function DashboardOverview() {
       {/* Header CTAs — desktop-leaning row of primary actions. On
           mobile they wrap to two rows so they don't crowd the title. */}
       <div className="cta-row">
-        <Link href="/dashboard/pets" className="cta cta-primary">
+        <Link href="/dashboard/emergency" className="cta cta-primary">
           <ShieldAlert size={16} />
           <span>Emergency card</span>
         </Link>
@@ -402,7 +402,7 @@ export default function DashboardOverview() {
           <Download size={16} />
           <span>Export records</span>
         </Link>
-        <Link href="/dashboard/reminders" className="cta cta-secondary">
+        <Link href="/dashboard/reminders?new=1" className="cta cta-secondary">
           <Plus size={16} />
           <span>Add reminder</span>
         </Link>

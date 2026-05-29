@@ -29,6 +29,7 @@ interface NavItem {
 const USER_NAV: NavItem[] = [
   { href: "/dashboard", label: "Overview", icon: "▦" },
   { href: "/dashboard/pets", label: "Pets", icon: "🐾" },
+  { href: "/dashboard/emergency", label: "Emergency", icon: "🚨" },
   { href: "/dashboard/reminders", label: "Reminders", icon: "⏰" },
   { href: "/dashboard/records", label: "Records", icon: "📂" },
   { href: "/dashboard/support", label: "Support", icon: "✉" },
