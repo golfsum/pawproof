@@ -8,6 +8,7 @@ import { useAuth, getIdToken } from "@/lib/auth-context";
 import { auth } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
+import { LogoMark } from "./logo";
 
 // Shell for /dashboard/* and /admin/*. Provides:
 //  - auth guard (kicks unauthenticated users to /sign-in)
@@ -100,9 +101,7 @@ export function DashboardShell({
       <aside className="hidden md:flex w-64 flex-col border-r border-border bg-surface">
         <div className="flex h-16 items-center gap-2 border-b border-border px-5">
           <Link href="/" className="flex items-center gap-2 font-bold">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white">
-              P
-            </span>
+            <LogoMark className="h-8 w-8 rounded-lg" />
             PawProof
           </Link>
           {kind === "admin" ? (
@@ -148,7 +147,8 @@ export function DashboardShell({
 
       <div className="flex flex-1 flex-col">
         <header className="md:hidden flex h-14 items-center justify-between border-b border-border bg-surface px-4">
-          <Link href="/" className="font-bold text-sm">
+          <Link href="/" className="flex items-center gap-2 font-bold text-sm">
+            <LogoMark className="h-7 w-7 rounded-md" />
             PawProof {kind === "admin" ? "Admin" : ""}
           </Link>
           <button

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="PawProof logo">
+  <defs>
+    <clipPath id="pp-shield">
+      <path d="M200 185 Q200 130 255 130 L769 130 Q824 130 824 185 L824 560 Q824 720 700 830 Q600 915 512 958 Q424 915 324 830 Q200 720 200 560 Z"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#pp-shield)">
+    <rect x="0" y="0" width="1024" height="1024" fill="#8DB6B3"/>
+    <rect x="512" y="0" width="512" height="1024" fill="#5F9B98"/>
+  </g>
+  <g fill="#ffffff">
+    <ellipse cx="348" cy="500" rx="46" ry="60" transform="rotate(-18 348 500)"/>
+    <ellipse cx="452" cy="400" rx="48" ry="66" transform="rotate(-6 452 400)"/>
+    <ellipse cx="572" cy="398" rx="48" ry="66" transform="rotate(6 572 398)"/>
+    <ellipse cx="676" cy="492" rx="46" ry="60" transform="rotate(18 676 492)"/>
+    <ellipse cx="512" cy="700" rx="150" ry="112"/>
+  </g>
+  <circle cx="795" cy="240" r="112" fill="#ffffff"/>
+  <path d="M738 246 L778 290 L856 198" fill="none" stroke="#E6A93A" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

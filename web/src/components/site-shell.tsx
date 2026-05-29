@@ -6,6 +6,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "./ui/button";
+import { LogoMark } from "./logo";
 
 // Public site chrome: header + footer that wraps the marketing pages
 // (landing, legal, contact) and any non-app route. The dashboard uses
@@ -25,9 +26,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-30 w-full border-b border-border bg-background/85 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2 font-bold text-lg tracking-tight">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-white">
-            <span className="text-base">P</span>
-          </span>
+          <LogoMark className="h-9 w-9" />
           PawProof
         </Link>
         <nav className="hidden md:flex items-center gap-1">
@@ -96,9 +95,7 @@ export function SiteFooter() {
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 md:grid-cols-4">
         <div>
           <div className="flex items-center gap-2 font-bold text-lg">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white text-sm">
-              P
-            </span>
+            <LogoMark className="h-8 w-8 rounded-lg" />
             PawProof
           </div>
           <p className="mt-3 text-sm text-muted max-w-xs">

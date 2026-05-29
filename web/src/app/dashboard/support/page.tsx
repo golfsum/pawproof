@@ -110,69 +110,124 @@ export default function SupportPage() {
       ) : issues.length === 0 ? (
         <EmptyCard
           title="No tickets yet"
-          body="Use New ticket above when you need help."
+          body="Send your first one from the button above. We usually reply within a day or two, and every conversation lands here so you can pick it back up later."
         />
       ) : (
         <Card noPadding>
-          {issues.map((i) => (
-            <Link key={i.id} href={`/dashboard/support/${i.id}`} className="ticket-row">
-              <div className="ticket-row-inner">
-                <Chip
-                  label={STATUS_LABELS[i.status]}
-                  tone={
-                    i.status === "open"
-                      ? "warning"
-                      : i.status === "in_review"
-                        ? "neutral"
-                        : "success"
-                  }
-                />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="ticket-title">
-                    {CATEGORY_LABELS[i.category as IssueCategory] ?? i.category}
+          {issues.map((i) => {
+            // Fresh-reply badge: admin replied AFTER the user's most
+            // recent message. Same logic the mobile support tab uses
+            // so the two surfaces feel consistent.
+            const lastAdminMs = i.lastAdminUpdateAt ? +new Date(i.lastAdminUpdateAt) : 0;
+            const lastUserMs = i.thread
+              .filter((m) => m.from === "user")
+              .map((m) => +new Date(m.createdAt))
+              .reduce((a, b) => Math.max(a, b), 0);
+            const freshReply = lastAdminMs > 0 && lastAdminMs > lastUserMs;
+            const replyCount = i.thread.length;
+            return (
+              <Link key={i.id} href={`/dashboard/support/${i.id}`} className="ticket-row">
+                <div className="ticket-row-inner">
+                  <Chip
+                    label={STATUS_LABELS[i.status]}
+                    tone={
+                      i.status === "open"
+                        ? "warning"
+                        : i.status === "in_review"
+                          ? "neutral"
+                          : "success"
+                    }
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="ticket-title-row">
+                      <div className="ticket-title">
+                        {CATEGORY_LABELS[i.category as IssueCategory] ?? i.category}
+                      </div>
+                      {freshReply ? (
+                        <span className="fresh-reply">
+                          <span className="dot" />
+                          New reply
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="ticket-sub">{i.message}</div>
+                    <div className="ticket-meta">
+                      {replyCount > 0
+                        ? `${replyCount} repl${replyCount === 1 ? "y" : "ies"} · `
+                        : ""}
+                      Updated {relativeTime(i.updatedAt)}
+                    </div>
                   </div>
-                  <div className="ticket-sub">{i.message}</div>
                 </div>
-                <div className="ticket-time">{relativeTime(i.updatedAt)}</div>
-              </div>
-              <style jsx>{`
-                .ticket-row {
-                  display: block;
-                  color: inherit;
-                  text-decoration: none;
-                }
-                .ticket-row + .ticket-row .ticket-row-inner {
-                  border-top: 0.5px solid rgba(60, 60, 67, 0.18);
-                }
-                .ticket-row-inner {
-                  display: flex;
-                  align-items: center;
-                  gap: 12px;
-                  padding: 14px 16px;
-                }
-                .ticket-title {
-                  font-size: 14px;
-                  font-weight: 600;
-                  color: #16252e;
-                }
-                .ticket-sub {
-                  font-size: 12px;
-                  color: rgba(60, 60, 67, 0.6);
-                  margin-top: 2px;
-                  overflow: hidden;
-                  text-overflow: ellipsis;
-                  display: -webkit-box;
-                  -webkit-line-clamp: 1;
-                  -webkit-box-orient: vertical;
-                }
-                .ticket-time {
-                  font-size: 11px;
-                  color: rgba(60, 60, 67, 0.6);
-                  flex-shrink: 0;
-                }
-              `}</style>
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
+
+          <style jsx>{`
+            .ticket-row {
+              display: block;
+              color: inherit;
+              text-decoration: none;
+              transition: background 120ms ease;
+            }
+            .ticket-row:hover {
+              background: rgba(42, 143, 168, 0.04);
+            }
+            .ticket-row + .ticket-row .ticket-row-inner {
+              border-top: 0.5px solid rgba(60, 60, 67, 0.18);
+            }
+            .ticket-row-inner {
+              display: flex;
+              align-items: flex-start;
+              gap: 12px;
+              padding: 14px 16px;
+            }
+            .ticket-title-row {
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              flex-wrap: wrap;
+            }
+            .ticket-title {
+              font-size: 14px;
+              font-weight: 600;
+              color: #16252e;
+            }
+            .fresh-reply {
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+              padding: 2px 8px;
+              border-radius: 999px;
+              background: rgba(42, 143, 168, 0.12);
+              color: #2a8fa8;
+              font-size: 10px;
+              font-weight: 700;
+              letter-spacing: 0.4px;
+              text-transform: uppercase;
+            }
+            .fresh-reply .dot {
+              width: 6px;
+              height: 6px;
+              border-radius: 999px;
+              background: #2a8fa8;
+            }
+            .ticket-sub {
+              font-size: 12px;
+              color: rgba(60, 60, 67, 0.7);
+              margin-top: 4px;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              display: -webkit-box;
+              -webkit-line-clamp: 2;
+              -webkit-box-orient: vertical;
+            }
+            .ticket-meta {
+              font-size: 11px;
+              color: rgba(60, 60, 67, 0.55);
+              margin-top: 6px;
+            }
+          `}</style>
         </Card>
       )}
     </>

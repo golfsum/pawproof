@@ -19,6 +19,7 @@ export const metadata: Metadata = {
     type: "website",
   },
   twitter: { card: "summary_large_image", title: "PawProof" },
+  icons: { icon: "/logo.svg", apple: "/logo.svg" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

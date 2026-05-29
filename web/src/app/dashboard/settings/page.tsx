@@ -3,12 +3,14 @@
 import { useRouter } from "next/navigation";
 import { signOut } from "firebase/auth";
 import {
+  Archive,
   Bell,
   FileText,
   LogOut,
   MessageSquare,
   Shield,
   Sparkles,
+  Users,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { auth } from "@/lib/firebase";
@@ -55,6 +57,32 @@ export default function SettingsPage() {
               ? "You're a Plus member."
               : "Unlimited pets, OCR, PDF export, and more."
           }
+        />
+      </Card>
+
+      <SectionLabel>People</SectionLabel>
+      <Card noPadding>
+        <ListRow
+          icon={<Users size={18} />}
+          iconTint="primary"
+          title="Manage people"
+          subtitle={
+            profile?.isPremium
+              ? "See who has access to each pet"
+              : "Invite caregivers with PawProof Plus"
+          }
+          href="/dashboard/people"
+        />
+      </Card>
+
+      <SectionLabel>Data</SectionLabel>
+      <Card noPadding>
+        <ListRow
+          icon={<Archive size={18} />}
+          iconTint="primary"
+          title="Your data"
+          subtitle="Export backups, records PDFs, and review what's on file"
+          href="/dashboard/data"
         />
       </Card>
 

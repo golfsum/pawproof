@@ -312,15 +312,63 @@ export function ListRow({
   return content;
 }
 
+// Two modes:
+//   - Status chip (default): tone-colored pill, all-caps label, used
+//     as a small badge next to a row.
+//   - Filter chip (when `onClick` is set): larger tappable pill,
+//     mixed-case label, primary fill when `selected`. Used in filter
+//     rows on Records, Reminders, Activity, etc.
 export function Chip({
   label,
   tone,
+  onClick,
+  selected,
 }: {
   label: string;
-  tone: "success" | "warning" | "danger" | "neutral";
+  tone?: "success" | "warning" | "danger" | "neutral";
+  onClick?: () => void;
+  selected?: boolean;
 }) {
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={cn("app-chip-filter", selected && "app-chip-filter-on")}
+      >
+        {label}
+        <style jsx>{`
+          .app-chip-filter {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #fff;
+            color: #16252e;
+            border: 1px solid rgba(60, 60, 67, 0.14);
+            cursor: pointer;
+            transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+            font-family: inherit;
+          }
+          .app-chip-filter:hover {
+            background: #f7f1e3;
+          }
+          .app-chip-filter-on {
+            background: #2a8fa8;
+            color: #fff;
+            border-color: #2a8fa8;
+          }
+          .app-chip-filter-on:hover {
+            background: #1e6c80;
+          }
+        `}</style>
+      </button>
+    );
+  }
   return (
-    <span className={cn("app-chip", `app-chip-${tone}`)}>
+    <span className={cn("app-chip", `app-chip-${tone ?? "neutral"}`)}>
       {label}
       <style jsx>{`
         .app-chip {
