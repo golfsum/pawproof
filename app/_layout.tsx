@@ -93,6 +93,7 @@ function RootNav() {
         <Stack.Screen name="pet/edit/[id]" options={{ title: 'Edit pet', presentation: 'modal' }} />
         <Stack.Screen name="pet/emergency/[id]" options={{ title: 'Emergency Card' }} />
         <Stack.Screen name="pet/summary/[id]" options={{ title: 'Monthly summary' }} />
+        <Stack.Screen name="pet/vet-report/[id]" options={{ title: 'Vet report' }} />
         <Stack.Screen name="reminder/add" options={{ title: 'New reminder', presentation: 'modal' }} />
         <Stack.Screen name="medication/add" options={{ title: 'Add medication', presentation: 'modal' }} />
         <Stack.Screen name="medication/[id]" options={{ title: 'Medication' }} />

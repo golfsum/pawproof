@@ -1,6 +1,41 @@
 import Link from "next/link";
 import { SiteHeader, SiteFooter } from "@/components/site-shell";
 import { Button } from "@/components/ui/button";
+import { PhoneFrame } from "@/components/phone-frame";
+
+// In-app screenshots shown in the showcase strip. Files live in
+// /public/screenshots (see README there). Alternating layout — image side
+// flips each row.
+const SHOWCASE = [
+  {
+    src: "/screenshots/reminders.png",
+    alt: "PawProof reminders screen grouped by pet",
+    eyebrow: "Reminders",
+    title: "Never miss a booster again",
+    body: "Vaccine expirations, meds, heartworm, flea & tick — grouped by pet, with one-tap renew. Overdue items surface in red so nothing slips.",
+  },
+  {
+    src: "/screenshots/records.png",
+    alt: "PawProof records screen with vaccines and documents",
+    eyebrow: "Records & Smart Scan",
+    title: "Every vaccine and document, organized",
+    body: "Scan a vaccine card or vet invoice and PawProof reads the dates for you. Search across every record and export a vet-ready PDF.",
+  },
+  {
+    src: "/screenshots/emergency.png",
+    alt: "PawProof emergency card for a dog",
+    eyebrow: "Emergency card",
+    title: "The info a vet or sitter needs, instantly",
+    body: "Owner and vet contacts, allergies, medications, microchip, and vaccine status on one screen. Share it by text, email, or PDF in seconds.",
+  },
+  {
+    src: "/screenshots/pets.png",
+    alt: "PawProof My Pets list with three dogs",
+    eyebrow: "Multi-pet households",
+    title: "One home for the whole crew",
+    body: "Manage every pet in one place. Each card shows the next thing due, so you always know whose turn it is for what.",
+  },
+];
 
 const FEATURES = [
   {
@@ -61,37 +96,57 @@ export default function Home() {
       <main className="flex-1">
         {/* Hero */}
         <section className="relative overflow-hidden">
-          <div className="mx-auto max-w-6xl px-4 pt-16 pb-20 md:pt-24 md:pb-28 text-center">
-            <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-xs font-semibold text-primary-dark">
-              <span className="inline-block h-2 w-2 rounded-full bg-primary" />
-              Free for 2 pets, no card required
-            </span>
-            <h1 className="mt-6 text-4xl md:text-6xl font-extrabold tracking-tight text-foreground">
-              Every pet&apos;s care,
-              <br />
-              <span className="text-primary">in one place.</span>
-            </h1>
-            <p className="mt-5 max-w-2xl mx-auto text-lg text-muted">
-              PawProof is the journal, vaccine tracker, and reminder app for
-              households with one pet or six. Smart Scan reads vaccine cards
-              and invoices so you don&apos;t have to.
-            </p>
-            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link href="/sign-in?mode=signup">
-                <Button size="lg" className="w-full sm:w-auto">
-                  Get started free
-                </Button>
-              </Link>
-              <Link href="/#features">
-                <Button variant="ghost" size="lg" className="w-full sm:w-auto">
-                  See features
-                </Button>
-              </Link>
+          <div className="mx-auto max-w-6xl px-4 pt-16 pb-20 md:pt-24 md:pb-28">
+            <div className="grid items-center gap-12 lg:grid-cols-2">
+              {/* Copy */}
+              <div className="text-center lg:text-left">
+                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-xs font-semibold text-primary-dark">
+                  <span className="inline-block h-2 w-2 rounded-full bg-primary" />
+                  Free for 2 pets, no card required
+                </span>
+                <h1 className="mt-6 text-4xl md:text-6xl font-extrabold tracking-tight text-foreground">
+                  Every pet&apos;s care,
+                  <br />
+                  <span className="text-primary">in one place.</span>
+                </h1>
+                <p className="mt-5 max-w-xl mx-auto lg:mx-0 text-lg text-muted">
+                  PawProof is the journal, vaccine tracker, and reminder app for
+                  households with one pet or six. Smart Scan reads vaccine cards
+                  and invoices so you don&apos;t have to.
+                </p>
+                <div className="mt-8 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
+                  <Link href="/sign-in?mode=signup">
+                    <Button size="lg" className="w-full sm:w-auto">
+                      Get started free
+                    </Button>
+                  </Link>
+                  <Link href="/#features">
+                    <Button variant="ghost" size="lg" className="w-full sm:w-auto">
+                      See features
+                    </Button>
+                  </Link>
+                </div>
+                <p className="mt-4 text-xs text-faint">
+                  iOS app + web dashboard. Free tier covers 2 pets, 3 documents,
+                  and your first Smart Scan.
+                </p>
+              </div>
+
+              {/* Hero screenshot */}
+              <div className="relative flex justify-center">
+                {/* Soft glow behind the phone */}
+                <div
+                  aria-hidden
+                  className="absolute inset-0 -z-10 mx-auto h-72 w-72 self-center rounded-full bg-primary/15 blur-3xl"
+                />
+                <PhoneFrame
+                  src="/screenshots/home.png"
+                  alt="PawProof home dashboard showing today's care and reminders"
+                  priority
+                  className="max-w-[260px] sm:max-w-[300px]"
+                />
+              </div>
             </div>
-            <p className="mt-4 text-xs text-faint">
-              iOS app + web dashboard. Free tier covers 2 pets, 3 documents,
-              and your first Smart Scan.
-            </p>
           </div>
         </section>
 
@@ -123,6 +178,47 @@ export default function Home() {
                   </div>
                   <h3 className="mt-4 font-semibold text-lg">{f.title}</h3>
                   <p className="mt-2 text-sm text-muted leading-relaxed">{f.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Screenshot showcase */}
+        <section className="border-b border-border">
+          <div className="mx-auto max-w-6xl px-4 py-16 md:py-24">
+            <div className="max-w-2xl">
+              <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+                See it in action.
+              </h2>
+              <p className="mt-3 text-muted">
+                A quick look at the screens you&apos;ll use every day.
+              </p>
+            </div>
+            <div className="mt-12 flex flex-col gap-16 md:gap-24">
+              {SHOWCASE.map((s, i) => (
+                <div
+                  key={s.src}
+                  className="grid items-center gap-8 md:grid-cols-2 md:gap-12"
+                >
+                  {/* Phone — alternates side on desktop */}
+                  <div
+                    className={
+                      i % 2 === 1 ? "md:order-2 flex justify-center" : "flex justify-center"
+                    }
+                  >
+                    <PhoneFrame src={s.src} alt={s.alt} className="max-w-[240px]" />
+                  </div>
+                  {/* Copy */}
+                  <div className={i % 2 === 1 ? "md:order-1" : ""}>
+                    <div className="text-xs font-semibold uppercase tracking-wider text-primary">
+                      {s.eyebrow}
+                    </div>
+                    <h3 className="mt-2 text-2xl md:text-3xl font-bold tracking-tight">
+                      {s.title}
+                    </h3>
+                    <p className="mt-3 text-muted leading-relaxed">{s.body}</p>
+                  </div>
                 </div>
               ))}
             </div>

@@ -28,15 +28,17 @@ service cloud.firestore {
 
     // ---- Pet sharing (caregiver invites) ------------------------------
     // A share doc is created by the pet owner and accepted by an invitee.
-    // Readable by either party; never world-readable (prevents enumerating
-    // invites, which carry emails/names). Lookups by invite code must be
-    // done server-side or with a get() on a known id — listing is denied
-    // unless you are the owner.
     match /pet_shares/{shareId} {
-      allow read: if isSignedIn()
-        && (resource.data.ownerUid == request.auth.uid
-            || resource.data.inviteeUid == request.auth.uid
-            || lower(resource.data.inviteeEmail) == lower(request.auth.token.email));
+      // NOTE: read is allowed for any signed-in user. The app needs to look
+      // shares up by invite code (acceptShareInvite) and by petId
+      // (watchSharesForPet) — queries that aren't scoped to the caller, which
+      // Firestore can only permit with a broad read rule. Share docs hold
+      // only invite metadata (emails/names/petName), not pet health data.
+      // Tradeoff: a determined signed-in user could enumerate invites. The
+      // hardened alternative is to move invite redemption behind a Cloud
+      // Function and scope reads to owner/invitee only — do that before
+      // sharing leaves "coming soon".
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && incoming().ownerUid == request.auth.uid;
       // Owner can revoke; invitee can accept (claim) their own invite.
       allow update: if isSignedIn()

@@ -41,7 +41,7 @@ const WALK_TYPES = ['Walk', 'Run', 'Play', 'Hike', 'Fetch', 'Other'];
 // is plenty so the row doesn't wrap on narrow phones.
 const WALK_DISTANCE_PRESETS_MI = [0.5, 1, 2, 3, 5];
 const WALK_DISTANCE_PRESETS_KM = [1, 2, 3, 5, 8];
-const SYMPTOM_TYPES = ['Vomiting', 'Limping', 'Itching', 'Low Energy', 'Other'];
+const SYMPTOM_TYPES = ['Not eating', 'Vomiting', 'Diarrhea', 'Coughing', 'Limping', 'Itching', 'Low Energy', 'Other'];
 const SEVERITIES: { label: string; value: SymptomSeverity; tone: 'success' | 'warning' | 'danger' }[] = [
   { label: 'Mild', value: 'mild', tone: 'success' },
   { label: 'Medium', value: 'medium', tone: 'warning' },

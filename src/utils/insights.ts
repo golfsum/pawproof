@@ -288,3 +288,118 @@ export function summarizeActivity(entries: JournalEntry[], fromIso: string, toIs
 export function startOfNDaysAgo(n: number): string {
   return startOfDay(subDays(new Date(), n)).toISOString();
 }
+
+// ── Vet report ───────────────────────────────────────────────────────
+// Aggregates a pet's logged symptoms into a vet-ready summary: per-symptom
+// frequency, first/last occurrence, severity mix, and a chronological log
+// of every symptom entry (with the owner's note). Drives the Vet report
+// screen and PDF.
+
+export interface SymptomOccurrence {
+  timestamp: string;        // ISO
+  severity: SymptomSeverity | null;
+  note: string | null;
+}
+
+export interface SymptomGroup {
+  /** The symptom name (subtype), e.g. "Not eating", "Vomiting". */
+  name: string;
+  count: number;
+  firstSeen: string;        // ISO of earliest occurrence in range
+  lastSeen: string;         // ISO of most recent occurrence in range
+  severityBreakdown: Record<SymptomSeverity, number>;
+  /** Every occurrence, newest first. */
+  occurrences: SymptomOccurrence[];
+}
+
+export interface SymptomReport {
+  fromIso: string;
+  toIso: string;
+  totalSymptomEntries: number;
+  /** Per-symptom groups, sorted by count desc then most-recent. */
+  groups: SymptomGroup[];
+  /** Flat chronological log (newest first) across all symptoms. */
+  timeline: (SymptomOccurrence & { name: string })[];
+}
+
+/** Subtypes treated as "appetite / not eating" for the headline callout. */
+const APPETITE_SUBTYPES = ['not eating', 'loss of appetite', 'not eating well', 'appetite', 'inappetence'];
+
+export function isAppetiteSymptom(name: string | null | undefined): boolean {
+  if (!name) return false;
+  return APPETITE_SUBTYPES.includes(name.trim().toLowerCase());
+}
+
+/**
+ * Build a symptom report for a pet over a date range. Pass the pet's
+ * journal entries (already filtered to that pet). Malformed timestamps are
+ * skipped. Defaults `to` to now when omitted.
+ */
+export function buildSymptomReport(
+  entries: JournalEntry[],
+  fromIso: string,
+  toIso?: string,
+): SymptomReport {
+  const from = new Date(fromIso);
+  const to = toIso ? new Date(toIso) : new Date();
+  const fromValid = !Number.isNaN(from.getTime());
+  const toValid = !Number.isNaN(to.getTime());
+
+  const symptomEntries = entries.filter(e => {
+    if (e.type !== 'symptom') return false;
+    const t = new Date(e.timestamp);
+    if (Number.isNaN(t.getTime())) return false;
+    if (fromValid && t < from) return false;
+    if (toValid && t > to) return false;
+    return true;
+  });
+
+  const byName = new Map<string, SymptomGroup>();
+  const timeline: (SymptomOccurrence & { name: string })[] = [];
+
+  for (const e of symptomEntries) {
+    const name = (e.subtype ?? '').trim() || 'Other';
+    const occ: SymptomOccurrence = {
+      timestamp: e.timestamp,
+      severity: e.severity ?? null,
+      note: (e.note ?? '').trim() || null,
+    };
+    timeline.push({ ...occ, name });
+
+    let g = byName.get(name);
+    if (!g) {
+      g = {
+        name,
+        count: 0,
+        firstSeen: e.timestamp,
+        lastSeen: e.timestamp,
+        severityBreakdown: { mild: 0, medium: 0, serious: 0 },
+        occurrences: [],
+      };
+      byName.set(name, g);
+    }
+    g.count++;
+    g.occurrences.push(occ);
+    if (e.severity) g.severityBreakdown[e.severity]++;
+    if (new Date(e.timestamp) < new Date(g.firstSeen)) g.firstSeen = e.timestamp;
+    if (new Date(e.timestamp) > new Date(g.lastSeen)) g.lastSeen = e.timestamp;
+  }
+
+  // Newest-first within each group and the flat timeline.
+  for (const g of byName.values()) {
+    g.occurrences.sort((a, b) => +new Date(b.timestamp) - +new Date(a.timestamp));
+  }
+  timeline.sort((a, b) => +new Date(b.timestamp) - +new Date(a.timestamp));
+
+  const groups = [...byName.values()].sort(
+    (a, b) => b.count - a.count || +new Date(b.lastSeen) - +new Date(a.lastSeen),
+  );
+
+  return {
+    fromIso: fromValid ? from.toISOString() : new Date(0).toISOString(),
+    toIso: toValid ? to.toISOString() : new Date().toISOString(),
+    totalSymptomEntries: symptomEntries.length,
+    groups,
+    timeline,
+  };
+}

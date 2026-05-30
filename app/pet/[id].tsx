@@ -141,21 +141,27 @@ export default function PetProfileScreen() {
     }
   };
 
-  // Share menu: vet-ready health summary OR pet-sitter routine guide.
+  const openVetReport = () =>
+    router.push({ pathname: '/pet/vet-report/[id]', params: { id: pet.id } });
+
+  // Share menu: vet-ready health summary, symptom report for the vet, OR
+  // pet-sitter routine guide.
   const handleExport = () => {
-    const options = ['Vet health summary', 'Pet sitter guide', 'Cancel'];
+    const options = ['Vet health summary', 'Vet report (symptoms)', 'Pet sitter guide', 'Cancel'];
     const cancelIndex = options.length - 1;
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         { title: `Share ${pet.name}'s profile`, options, cancelButtonIndex: cancelIndex },
         idx => {
           if (idx === 0) exportHealthPdf();
-          else if (idx === 1) exportSitterPdf();
+          else if (idx === 1) openVetReport();
+          else if (idx === 2) exportSitterPdf();
         },
       );
     } else {
       Alert.alert(`Share ${pet.name}'s profile`, undefined, [
         { text: 'Vet health summary', onPress: exportHealthPdf },
+        { text: 'Vet report (symptoms)', onPress: openVetReport },
         { text: 'Pet sitter guide', onPress: exportSitterPdf },
         { text: 'Cancel', style: 'cancel' as const },
       ]);
