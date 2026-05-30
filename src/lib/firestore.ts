@@ -17,6 +17,7 @@ import {
   Unsubscribe,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { cancelReminder } from './notifications';
 import type {
   Pet,
   JournalEntry,
@@ -533,11 +534,11 @@ export function watchOutgoingShares(
 
 // --- Pets ---
 
-export function watchPets(uid: string, cb: (pets: Pet[]) => void): Unsubscribe {
+export function watchPets(uid: string, cb: (pets: Pet[]) => void, onError?: (e: Error) => void): Unsubscribe {
   const q = query(petsCol(uid), orderBy('createdAt', 'asc'));
   return onSnapshot(q, snap => {
     cb(snap.docs.map(d => fromDoc<Pet>(d)));
-  });
+  }, onError);
 }
 
 export async function getPet(uid: string, petId: string): Promise<Pet | null> {
@@ -587,6 +588,35 @@ export async function updatePet(uid: string, petId: string, data: Partial<Pet>):
 }
 
 export async function deletePet(uid: string, petId: string): Promise<void> {
+  // Cascade delete every child record that references this pet so we don't
+  // leave orphaned reminders/vaccines/etc. behind. Child docs are removed
+  // BEFORE the pet doc so a mid-way failure leaves the pet visible and the
+  // operation is safely re-runnable.
+
+  // Reminders: cancel each scheduled notification, then delete the doc.
+  const reminderSnap = await getDocs(query(remindersCol(uid), where('petId', '==', petId)));
+  await Promise.all(
+    reminderSnap.docs.map(async (d) => {
+      const notifId = (d.data() as { notificationId?: string | null }).notificationId;
+      await cancelReminder(notifId);
+      await deleteDoc(d.ref);
+    }),
+  );
+
+  // Remaining single-pet child collections. (Multi-pet journal entries that
+  // also cover other pets via `petIds` are intentionally left intact.)
+  const childCols = [vaccinesCol(uid), docsCol(uid), medsCol(uid), weightsCol(uid), entriesCol(uid)];
+  for (const col of childCols) {
+    const snap = await getDocs(query(col, where('petId', '==', petId)));
+    await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+  }
+
+  // Revoke any caregiver shares for this pet.
+  const shareSnap = await getDocs(
+    query(petSharesCol(), where('ownerUid', '==', uid), where('petId', '==', petId)),
+  );
+  await Promise.all(shareSnap.docs.map((d) => deleteDoc(d.ref)));
+
   await deleteDoc(doc(petsCol(uid), petId));
 }
 
@@ -597,11 +627,11 @@ export async function countPets(uid: string): Promise<number> {
 
 // --- Journal entries ---
 
-export function watchEntries(uid: string, cb: (entries: JournalEntry[]) => void, max = 200): Unsubscribe {
+export function watchEntries(uid: string, cb: (entries: JournalEntry[]) => void, onError?: (e: Error) => void, max = 200): Unsubscribe {
   const q = query(entriesCol(uid), orderBy('timestamp', 'desc'), limit(max));
   return onSnapshot(q, snap => {
     cb(snap.docs.map(d => fromDoc<JournalEntry>(d)));
-  });
+  }, onError);
 }
 
 export function watchEntriesForPet(uid: string, petId: string, cb: (entries: JournalEntry[]) => void, max = 200): Unsubscribe {
@@ -628,11 +658,11 @@ export async function deleteEntry(uid: string, entryId: string): Promise<void> {
 
 // --- Reminders ---
 
-export function watchReminders(uid: string, cb: (reminders: Reminder[]) => void): Unsubscribe {
+export function watchReminders(uid: string, cb: (reminders: Reminder[]) => void, onError?: (e: Error) => void): Unsubscribe {
   const q = query(remindersCol(uid), orderBy('dueDate', 'asc'));
   return onSnapshot(q, snap => {
     cb(snap.docs.map(d => fromDoc<Reminder>(d)));
-  });
+  }, onError);
 }
 
 export function watchRemindersForPet(uid: string, petId: string, cb: (reminders: Reminder[]) => void): Unsubscribe {
@@ -658,11 +688,11 @@ export async function deleteReminder(uid: string, reminderId: string): Promise<v
 
 // --- Vaccines ---
 
-export function watchVaccines(uid: string, cb: (records: VaccineRecord[]) => void): Unsubscribe {
+export function watchVaccines(uid: string, cb: (records: VaccineRecord[]) => void, onError?: (e: Error) => void): Unsubscribe {
   const q = query(vaccinesCol(uid), orderBy('dateGiven', 'desc'));
   return onSnapshot(q, snap => {
     cb(snap.docs.map(d => fromDoc<VaccineRecord>(d)));
-  });
+  }, onError);
 }
 
 export function watchVaccinesForPet(uid: string, petId: string, cb: (records: VaccineRecord[]) => void): Unsubscribe {
@@ -683,16 +713,30 @@ export async function updateVaccine(uid: string, vaccineId: string, data: Partia
 }
 
 export async function deleteVaccine(uid: string, vaccineId: string): Promise<void> {
+  // Vaccines may have an auto-created renewal reminder (reminderId). Cancel
+  // its notification and delete it so we don't orphan a reminder for a
+  // vaccine that no longer exists.
+  const vSnap = await getDoc(doc(vaccinesCol(uid), vaccineId));
+  const reminderId = vSnap.exists()
+    ? (vSnap.data() as { reminderId?: string | null }).reminderId
+    : null;
+  if (reminderId) {
+    const rSnap = await getDoc(doc(remindersCol(uid), reminderId));
+    if (rSnap.exists()) {
+      await cancelReminder((rSnap.data() as { notificationId?: string | null }).notificationId);
+      await deleteDoc(doc(remindersCol(uid), reminderId));
+    }
+  }
   await deleteDoc(doc(vaccinesCol(uid), vaccineId));
 }
 
 // --- Documents ---
 
-export function watchDocuments(uid: string, cb: (docs: PetDocument[]) => void): Unsubscribe {
+export function watchDocuments(uid: string, cb: (docs: PetDocument[]) => void, onError?: (e: Error) => void): Unsubscribe {
   const q = query(docsCol(uid), orderBy('createdAt', 'desc'));
   return onSnapshot(q, snap => {
     cb(snap.docs.map(d => fromDoc<PetDocument>(d)));
-  });
+  }, onError);
 }
 
 export function watchDocumentsForPet(uid: string, petId: string, cb: (docs: PetDocument[]) => void): Unsubscribe {
@@ -734,11 +778,11 @@ export async function createWeightLog(uid: string, data: Omit<WeightLog, 'id'>):
 
 // --- Medications ---
 
-export function watchMedications(uid: string, cb: (meds: Medication[]) => void): Unsubscribe {
+export function watchMedications(uid: string, cb: (meds: Medication[]) => void, onError?: (e: Error) => void): Unsubscribe {
   const q = query(medsCol(uid), orderBy('createdAt', 'desc'));
   return onSnapshot(q, snap => {
     cb(snap.docs.map(d => fromDoc<Medication>(d)));
-  });
+  }, onError);
 }
 
 export function watchMedicationsForPet(uid: string, petId: string, cb: (meds: Medication[]) => void): Unsubscribe {

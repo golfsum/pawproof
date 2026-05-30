@@ -60,6 +60,9 @@ interface UserData {
   documents: PetDocument[];
   entries: JournalEntry[];
   loading: boolean;
+  /** Set when a non-transient Firestore read fails, so pages can show a
+   *  "couldn't load" state instead of a misleading empty state. */
+  error: string | null;
 }
 
 export function useUserData(): UserData {
@@ -71,6 +74,7 @@ export function useUserData(): UserData {
   const [documents, setDocuments] = useState<PetDocument[]>([]);
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!uid || !db) {
@@ -80,9 +84,11 @@ export function useUserData(): UserData {
       setDocuments([]);
       setEntries([]);
       setLoading(false);
+      setError(null);
       return;
     }
     setLoading(true);
+    setError(null);
     let received = 0;
     const target = 5;
     const tick = () => {
@@ -116,6 +122,7 @@ export function useUserData(): UserData {
         (err) => {
           if (!isTransientAuthError(err)) {
             console.warn(`[useUserData] ${coll}:`, err);
+            setError("We couldn't load your data. Check your connection and refresh.");
           }
           tick();
         },
@@ -132,5 +139,5 @@ export function useUserData(): UserData {
     return () => unsubs.forEach((u) => u && u());
   }, [uid]);
 
-  return { pets, reminders, vaccines, documents, entries, loading };
+  return { pets, reminders, vaccines, documents, entries, loading, error };
 }

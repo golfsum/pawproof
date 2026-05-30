@@ -1,0 +1,73 @@
+rules_version = '2';
+
+// PawProof Firestore security rules.
+// Model: each user owns everything under /users/{uid}/**. Two top-level
+// collections (pet_shares, support_issues) are shared between parties and
+// scoped narrowly below. Default-deny everything else.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- Per-user data ------------------------------------------------
+    // The user doc itself. Reads/writes limited to the owner. The
+    // isPremium flag must NOT be settable by the client (entitlements are
+    // granted server-side via the Admin SDK, which bypasses these rules).
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid) && !incoming().keys().hasAny(['isPremium']);
+      allow update: if isOwner(uid)
+        && !changing('isPremium')
+        && !changing('freeOcrScansUsed'); // OCR quota is server-incremented
+      allow delete: if isOwner(uid);
+
+      // All subcollections (pets, reminders, vaccines, documents,
+      // medications, journalEntries, weights, …) belong to the owner.
+      match /{document=**} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // ---- Pet sharing (caregiver invites) ------------------------------
+    // A share doc is created by the pet owner and accepted by an invitee.
+    // Readable by either party; never world-readable (prevents enumerating
+    // invites, which carry emails/names). Lookups by invite code must be
+    // done server-side or with a get() on a known id — listing is denied
+    // unless you are the owner.
+    match /pet_shares/{shareId} {
+      allow read: if isSignedIn()
+        && (resource.data.ownerUid == request.auth.uid
+            || resource.data.inviteeUid == request.auth.uid
+            || lower(resource.data.inviteeEmail) == lower(request.auth.token.email));
+      allow create: if isSignedIn() && incoming().ownerUid == request.auth.uid;
+      // Owner can revoke; invitee can accept (claim) their own invite.
+      allow update: if isSignedIn()
+        && (resource.data.ownerUid == request.auth.uid
+            || lower(resource.data.inviteeEmail) == lower(request.auth.token.email));
+      allow delete: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
+    }
+
+    // ---- Support tickets ----------------------------------------------
+    // Created and read by their author. Admin reads/writes happen via the
+    // Admin SDK (bypasses rules), so no admin clause is needed here.
+    match /support_issues/{issueId} {
+      allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create: if isSignedIn() && incoming().uid == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow delete: if false;
+
+      // Replies thread (if stored as a subcollection).
+      match /{document=**} {
+        allow read, write: if isSignedIn()
+          && get(/databases/$(database)/documents/support_issues/$(issueId)).data.uid == request.auth.uid;
+      }
+    }
+
+    // ---- helpers ------------------------------------------------------
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
+    function incoming() { return request.resource.data; }
+    function changing(field) {
+      return incoming().diff(resource.data).affectedKeys().hasAny([field]);
+    }
+    function lower(s) { return s == null ? null : s.lower(); }
+  }
+}

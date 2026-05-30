@@ -442,9 +442,13 @@ export default function HomeScreen() {
                         <Text style={styles.todaySub} numberOfLines={1}>
                           {pet?.name ?? ''}
                           {pet?.name ? ' · ' : ''}
-                          {isOverdueItem
-                            ? `Overdue · ${format(new Date(r.dueDate), 'EEE h:mm a')}`
-                            : `Due today · ${format(new Date(r.dueDate), 'h:mm a')}`}
+                          {(() => {
+                            const dueAt = toDate(r.dueDate);
+                            if (!dueAt) return isOverdueItem ? 'Overdue' : 'Due today';
+                            return isOverdueItem
+                              ? `Overdue · ${format(dueAt, 'EEE h:mm a')}`
+                              : `Due today · ${format(dueAt, 'h:mm a')}`;
+                          })()}
                         </Text>
                       </View>
                     </Pressable>

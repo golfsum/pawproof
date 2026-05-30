@@ -33,6 +33,9 @@ interface DataContextValue {
   // update; until then this surfaces invite metadata only.
   receivedShares: PetShare[];
   loading: boolean;
+  /** Set when one or more Firestore listeners fail (permission/network).
+   *  Lets screens distinguish "load failed" from "genuinely empty". */
+  error: Error | null;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -47,6 +50,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [medications, setMedications] = useState<Medication[]>([]);
   const [receivedShares, setReceivedShares] = useState<PetShare[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -58,22 +62,28 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setMedications([]);
       setReceivedShares([]);
       setLoading(false);
+      setError(null);
       return;
     }
     setLoading(true);
+    setError(null);
     let received = 0;
     const target = 6;
     const tick = () => {
       received += 1;
       if (received >= target) setLoading(false);
     };
+    // On a listener error we STILL tick() so `loading` resolves (otherwise a
+    // single failed collection would hang the spinner forever), and we record
+    // the error so consumers can show a retry state instead of a false-empty.
+    const onErr = (e: Error) => { setError(e); tick(); };
     const unsubs = [
-      watchPets(user.uid, p => { setPets(p); tick(); }),
-      watchEntries(user.uid, e => { setEntries(e); tick(); }),
-      watchReminders(user.uid, r => { setReminders(r); tick(); }),
-      watchVaccines(user.uid, v => { setVaccines(v); tick(); }),
-      watchDocuments(user.uid, d => { setDocuments(d); tick(); }),
-      watchMedications(user.uid, m => { setMedications(m); tick(); }),
+      watchPets(user.uid, p => { setPets(p); tick(); }, onErr),
+      watchEntries(user.uid, e => { setEntries(e); tick(); }, onErr),
+      watchReminders(user.uid, r => { setReminders(r); tick(); }, onErr),
+      watchVaccines(user.uid, v => { setVaccines(v); tick(); }, onErr),
+      watchDocuments(user.uid, d => { setDocuments(d); tick(); }, onErr),
+      watchMedications(user.uid, m => { setMedications(m); tick(); }, onErr),
       // Doesn't count toward the loading target — shares are
       // supplementary and shouldn't block the initial render.
       watchSharesReceived(user.uid, setReceivedShares),
@@ -82,8 +92,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [user?.uid]);
 
   const value = useMemo<DataContextValue>(
-    () => ({ pets, entries, reminders, vaccines, documents, medications, receivedShares, loading }),
-    [pets, entries, reminders, vaccines, documents, medications, receivedShares, loading],
+    () => ({ pets, entries, reminders, vaccines, documents, medications, receivedShares, loading, error }),
+    [pets, entries, reminders, vaccines, documents, medications, receivedShares, loading, error],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

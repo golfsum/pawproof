@@ -16,6 +16,7 @@ import { AuthProvider, useAuth } from '@/hooks/AuthProvider';
 import { DataProvider } from '@/hooks/useData';
 import { setupAndroidChannel } from '@/lib/notifications';
 import { AnimatedSplash } from '@/components/AnimatedSplash';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { colors, fonts } from '@/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -134,11 +135,13 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <AuthProvider>
-          <DataProvider>
-            <RootNav />
-          </DataProvider>
-        </AuthProvider>
+        <ErrorBoundary>
+          <AuthProvider>
+            <DataProvider>
+              <RootNav />
+            </DataProvider>
+          </AuthProvider>
+        </ErrorBoundary>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

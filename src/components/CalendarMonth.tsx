@@ -54,6 +54,10 @@ interface Props {
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 export function dayKey(d: Date): string {
+  // Defensive: an Invalid Date would make date-fns format() throw and
+  // white-screen the calendar. Return a sentinel that simply won't match
+  // any real day cell instead.
+  if (Number.isNaN(d.getTime())) return 'invalid';
   return format(d, 'yyyy-MM-dd');
 }
 

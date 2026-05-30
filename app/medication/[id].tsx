@@ -31,7 +31,7 @@ export default function MedicationDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
-  const { medications, entries, pets } = useData();
+  const { medications, entries, pets, reminders } = useData();
 
   const med = medications.find(m => m.id === id);
   const pet = med ? pets.find(p => p.id === med.petId) : null;
@@ -91,7 +91,8 @@ export default function MedicationDetailScreen() {
             if (!user) return;
             try {
               if (med.reminderId) {
-                await cancelReminder(null); // placeholder, actual notif id stored on reminder doc
+                const linked = reminders.find((r) => r.id === med.reminderId);
+                await cancelReminder(linked?.notificationId);
                 await deleteReminder(user.uid, med.reminderId);
               }
               await deleteMedication(user.uid, med.id);

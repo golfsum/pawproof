@@ -177,7 +177,7 @@ function iconForReminderType(type: string): typeof AlarmClock {
 
 export default function DashboardOverview() {
   const { user } = useAuth();
-  const { pets, reminders, vaccines, entries } = useUserData();
+  const { pets, reminders, vaccines, entries, error } = useUserData();
 
   const overdue = useMemo(
     () => reminders.filter((r) => !r.isCompleted && isOverdue(r.dueDate)),
@@ -390,6 +390,24 @@ export default function DashboardOverview() {
             : `Managing ${pets.length} pet${pets.length === 1 ? "" : "s"}.`
         }
       />
+
+      {error ? (
+        <div
+          role="alert"
+          style={{
+            margin: "0 0 16px",
+            padding: "12px 14px",
+            borderRadius: 12,
+            background: "#fde2e1",
+            border: "1px solid rgba(186,26,26,0.25)",
+            color: "#991b1b",
+            fontSize: 13,
+            fontWeight: 600,
+          }}
+        >
+          {error}
+        </div>
+      ) : null}
 
       {/* Header CTAs — desktop-leaning row of primary actions. On
           mobile they wrap to two rows so they don't crowd the title. */}

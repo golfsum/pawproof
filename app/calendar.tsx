@@ -64,13 +64,17 @@ export default function CalendarScreen() {
     };
 
     for (const e of entries) {
+      const d = new Date(e.timestamp);
+      if (Number.isNaN(d.getTime())) continue; // skip malformed dates, don't crash the calendar
       const meta = JOURNAL_META[e.type] ?? JOURNAL_META.note;
-      stamp(new Date(e.timestamp), meta.tint, `e:${e.type}`);
+      stamp(d, meta.tint, `e:${e.type}`);
     }
     for (const r of reminders) {
       if (r.isCompleted) continue;
+      const d = new Date(r.dueDate);
+      if (Number.isNaN(d.getTime())) continue;
       const config = REMINDER_CATEGORY_CONFIG[getReminderCategory(r)];
-      stamp(new Date(r.dueDate), config.tint, `r:${getReminderCategory(r)}`);
+      stamp(d, config.tint, `r:${getReminderCategory(r)}`);
     }
 
     const out: Record<string, DayInfo> = {};

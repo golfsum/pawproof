@@ -43,7 +43,8 @@ export function generateInsights(
       const k = s.subtype || 'symptom';
       counts[k] = (counts[k] ?? 0) + 1;
     }
-    const [topSub, topCount] = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+    const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+    const [topSub, topCount] = top ?? ['symptom', 0];
     if (topCount >= 3) {
       insights.push({
         id: 'sym-recurrence',
@@ -174,7 +175,9 @@ export function generateInsights(
   // ── Vaccine expiration windows ──
   for (const v of petVaccines) {
     if (!v.expirationDate) continue;
-    const days = differenceInDays(new Date(v.expirationDate), now);
+    const expDate = new Date(v.expirationDate);
+    if (Number.isNaN(expDate.getTime())) continue; // skip malformed dates
+    const days = differenceInDays(expDate, now);
     if (days < 0) {
       insights.push({
         id: `vax-expired-${v.id}`,
@@ -245,9 +248,16 @@ export interface ActivitySummary {
 export function summarizeActivity(entries: JournalEntry[], fromIso: string, toIso?: string): ActivitySummary {
   const from = new Date(fromIso);
   const to = toIso ? new Date(toIso) : new Date();
+  // If the range itself is invalid, fall back to an all-time summary rather
+  // than silently returning zero counts (NaN comparisons exclude every row).
+  const fromValid = !Number.isNaN(from.getTime());
+  const toValid = !Number.isNaN(to.getTime());
   const filtered = entries.filter(e => {
     const t = new Date(e.timestamp);
-    return t >= from && t <= to;
+    if (Number.isNaN(t.getTime())) return false; // skip malformed entry timestamps
+    if (fromValid && t < from) return false;
+    if (toValid && t > to) return false;
+    return true;
   });
   const summary: ActivitySummary = {
     meals: 0,
