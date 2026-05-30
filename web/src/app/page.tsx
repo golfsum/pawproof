@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { PhoneFrame } from "@/components/phone-frame";
 
 // In-app screenshots shown in the showcase strip. Files live in
-// /public/screenshots (see README there). Alternating layout — image side
+// /public/screenshots (see README there). Alternating layout, image side
 // flips each row.
 const SHOWCASE = [
   {
@@ -12,7 +12,7 @@ const SHOWCASE = [
     alt: "PawProof reminders screen grouped by pet",
     eyebrow: "Reminders",
     title: "Never miss a booster again",
-    body: "Vaccine expirations, meds, heartworm, flea & tick — grouped by pet, with one-tap renew. Overdue items surface in red so nothing slips.",
+    body: "Vaccine expirations, meds, heartworm, flea & tick, grouped by pet with one-tap renew. Overdue items surface in red so nothing slips.",
   },
   {
     src: "/screenshots/records.png",
@@ -201,7 +201,7 @@ export default function Home() {
                   key={s.src}
                   className="grid items-center gap-8 md:grid-cols-2 md:gap-12"
                 >
-                  {/* Phone — alternates side on desktop */}
+                  {/* Phone alternates side on desktop */}
                   <div
                     className={
                       i % 2 === 1 ? "md:order-2 flex justify-center" : "flex justify-center"
@@ -239,7 +239,7 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Plus features card — single shared list above the three plan tiles */}
+            {/* Plus features card: single shared list above the three plan tiles */}
             <div className="mt-12 rounded-2xl border border-border bg-surface p-6 max-w-4xl">
               <div className="flex items-baseline justify-between">
                 <h3 className="font-bold text-xl">PawProof Plus includes</h3>
