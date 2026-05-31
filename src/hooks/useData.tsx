@@ -7,6 +7,7 @@ import {
   watchDocuments,
   watchMedications,
   watchSharesReceived,
+  watchReceipts,
 } from '@/lib/firestore';
 import { useAuth } from './AuthProvider';
 import type {
@@ -17,6 +18,7 @@ import type {
   PetDocument,
   Medication,
   PetShare,
+  Receipt,
 } from '@/types/models';
 import { entryCoversPet } from '@/types/models';
 
@@ -27,6 +29,7 @@ interface DataContextValue {
   vaccines: VaccineRecord[];
   documents: PetDocument[];
   medications: Medication[];
+  receipts: Receipt[];
   // Pets shared WITH this user (they're a caregiver / view-only).
   // The full pet docs live under the owner's /users/{ownerUid}/pets
   // subtree. Reading them from this side requires a Firestore rule
@@ -48,6 +51,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [vaccines, setVaccines] = useState<VaccineRecord[]>([]);
   const [documents, setDocuments] = useState<PetDocument[]>([]);
   const [medications, setMedications] = useState<Medication[]>([]);
+  const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [receivedShares, setReceivedShares] = useState<PetShare[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -60,6 +64,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setVaccines([]);
       setDocuments([]);
       setMedications([]);
+      setReceipts([]);
       setReceivedShares([]);
       setLoading(false);
       setError(null);
@@ -84,16 +89,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       watchVaccines(user.uid, v => { setVaccines(v); tick(); }, onErr),
       watchDocuments(user.uid, d => { setDocuments(d); tick(); }, onErr),
       watchMedications(user.uid, m => { setMedications(m); tick(); }, onErr),
-      // Doesn't count toward the loading target — shares are
+      // These don't count toward the loading target — they're
       // supplementary and shouldn't block the initial render.
+      watchReceipts(user.uid, setReceipts, onErr),
       watchSharesReceived(user.uid, setReceivedShares),
     ];
     return () => unsubs.forEach(u => u && u());
   }, [user?.uid]);
 
   const value = useMemo<DataContextValue>(
-    () => ({ pets, entries, reminders, vaccines, documents, medications, receivedShares, loading, error }),
-    [pets, entries, reminders, vaccines, documents, medications, receivedShares, loading, error],
+    () => ({ pets, entries, reminders, vaccines, documents, medications, receipts, receivedShares, loading, error }),
+    [pets, entries, reminders, vaccines, documents, medications, receipts, receivedShares, loading, error],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
@@ -133,4 +139,9 @@ export function useDocumentsForPet(petId: string): PetDocument[] {
 export function useMedicationsForPet(petId: string): Medication[] {
   const { medications } = useData();
   return useMemo(() => medications.filter(m => m.petId === petId), [medications, petId]);
+}
+
+export function useReceiptsForPet(petId: string): Receipt[] {
+  const { receipts } = useData();
+  return useMemo(() => receipts.filter(r => r.petId === petId), [receipts, petId]);
 }

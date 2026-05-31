@@ -462,6 +462,102 @@ export async function extractVetInvoiceInfo(imageUri: string): Promise<InvoiceOc
   return parsed;
 }
 
+// ─── Receipt OCR ──────────────────────────────────────────────────────
+// For non-vet purchases: pet food, treats, grooming, toys, supplies, etc.
+// Extracts vendor, date, total, a best-guess spending category, and line
+// items. Distinct from extractVetInvoiceInfo (which is vaccine-focused).
+
+export interface ReceiptOcrLineItem {
+  name: string;
+  price: string | null; // as printed, e.g. "$12.99"
+}
+
+export interface ReceiptOcrResult {
+  rawText: string;
+  vendor: string | null;
+  date: string | null;        // ISO yyyy-mm-dd
+  total: string | null;       // as printed, e.g. "$42.99"
+  // One of the app's ReceiptCategory values, or null if unsure. Validated
+  // client-side via normalizeReceiptCategory().
+  category: string | null;
+  items: ReceiptOcrLineItem[];
+}
+
+const RECEIPT_PROMPT = `You are an OCR assistant for a pet care app. The user uploads a photo of a store RECEIPT for pet-related purchases (food, treats, grooming, toys, supplies, medications, boarding, training, insurance, etc.).
+
+Return STRICT JSON ONLY (no markdown fences, no commentary). Schema:
+{
+  "rawText": "<all readable text, preserving line breaks>",
+  "vendor": "<string or null - the store/merchant name, e.g. \\"Chewy\\", \\"PetSmart\\">",
+  "date": "<YYYY-MM-DD or null - the purchase date>",
+  "total": "<string or null - the grand total as printed, e.g. \\"$42.99\\">",
+  "category": "<one of: food, treats, grooming, toys, supplies, medical, boarding, training, insurance, other>",
+  "items": [
+    { "name": "<line item description>", "price": "<string or null, as printed>" }
+  ]
+}
+
+Rules:
+- "category" is your best guess for the OVERALL receipt based on the vendor and items. Use "food" for pet food, "treats" for treats/chews, "medical" for medications/pharmacy/vet supplies, "supplies" for litter/bowls/leashes/crates, "toys" for toys. If unsure, use "other".
+- "total" is the final amount paid (grand total), not a subtotal. Include the currency symbol as printed.
+- Normalise the date to YYYY-MM-DD. Resolve 2-digit years to 20YY.
+- Include up to 20 line items. Skip tax/subtotal/total lines from the items array.
+- If a field isn't clearly present, set it to null (or empty array). Do NOT guess vendor or total.
+- Output JSON ONLY.`;
+
+export async function extractReceiptInfo(imageUri: string): Promise<ReceiptOcrResult> {
+  const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error('Missing EXPO_PUBLIC_GEMINI_API_KEY. Add it to your .env file.');
+  }
+
+  const base64 = await uriToBase64(imageUri);
+  const mimeType = inferMimeType(imageUri);
+
+  const body = {
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          { text: RECEIPT_PROMPT },
+          { inlineData: { mimeType, data: base64 } },
+        ],
+      },
+    ],
+    generationConfig: {
+      temperature: 0.1,
+      responseMimeType: 'application/json',
+    },
+  };
+
+  const res = await fetch(`${ENDPOINT}?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`Gemini OCR failed (${res.status}): ${errText.slice(0, 300)}`);
+  }
+
+  const json = await res.json();
+  const text: string | undefined = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('Gemini returned no text. Try a clearer photo.');
+
+  let parsed: ReceiptOcrResult;
+  try {
+    parsed = JSON.parse(stripFences(text));
+  } catch {
+    throw new Error('Could not parse Gemini response as JSON.');
+  }
+
+  // Defensive normalisation.
+  parsed.rawText ??= '';
+  parsed.items = Array.isArray(parsed.items) ? parsed.items.filter(i => i && i.name) : [];
+  return parsed;
+}
+
 function inferMimeType(uri: string): string {
   const lower = uri.toLowerCase();
   if (lower.endsWith('.png')) return 'image/png';

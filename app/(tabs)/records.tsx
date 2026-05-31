@@ -155,6 +155,12 @@ export default function RecordsScreen() {
     router.push('/vaccine/add');
   };
 
+  const handleScanReceipt = () => {
+    // Receipt scanning uses the OCR gate (free trial, then Plus), same as
+    // document scanning. The receipt screen also offers manual entry.
+    if (check('ocr_scan')) router.push('/receipt/scan' as never);
+  };
+
   // Compute the data the "View all" modal needs from current state.
   const modalData = useMemo(() => {
     if (!viewAll) return null;
@@ -226,6 +232,16 @@ export default function RecordsScreen() {
                 badge={isPremium ? undefined : ocrTrialAvailable ? '1 free scan' : 'Plus'}
               />
               <QuickAdd label="Add Vaccine Record" icon="shield-checkmark-outline" tint={colors.success} onPress={handleAddVaccine} />
+            </View>
+            <View style={styles.quickRow}>
+              <QuickAdd
+                label="Scan Receipt"
+                icon="receipt-outline"
+                tint={colors.warning}
+                onPress={handleScanReceipt}
+                badge={isPremium ? undefined : ocrTrialAvailable ? '1 free scan' : 'Plus'}
+              />
+              <QuickAdd label="Spending" icon="cash-outline" tint={colors.accent} onPress={() => router.push('/receipts' as never)} />
             </View>
 
             {filtersActive ? (

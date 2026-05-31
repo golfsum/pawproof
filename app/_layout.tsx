@@ -101,6 +101,8 @@ function RootNav() {
         <Stack.Screen name="vaccine/edit/[id]" options={{ title: 'Edit vaccine record', presentation: 'modal' }} />
         <Stack.Screen name="vaccine/scan" options={{ title: 'Scan vaccine', presentation: 'modal' }} />
         <Stack.Screen name="invoice/scan" options={{ title: 'Scan vet invoice', presentation: 'modal' }} />
+        <Stack.Screen name="receipt/scan" options={{ title: 'Scan receipt', presentation: 'modal' }} />
+        <Stack.Screen name="receipts/index" options={{ title: 'Spending' }} />
         <Stack.Screen name="document/scan" options={{ title: 'Scan Document', presentation: 'modal' }} />
         <Stack.Screen name="document/upload" options={{ title: 'Add document', presentation: 'modal' }} />
         <Stack.Screen name="document/[id]" options={{ title: 'Document' }} />

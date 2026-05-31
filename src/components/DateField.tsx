@@ -6,16 +6,20 @@ import { colors, radius, spacing } from '@/theme';
 import { fmtDate, fmtRelative } from '@/utils/dates';
 
 interface Props {
-  label: string;
+  /** Optional field label shown above the button. Omit when the caller
+   *  renders its own label (e.g. inside a <Field> wrapper). */
+  label?: string;
   value: Date | null;
   onChange: (d: Date | null) => void;
   mode?: 'date' | 'datetime';
   optional?: boolean;
   minimumDate?: Date;
   maximumDate?: Date;
+  /** Text shown on the button when no date is selected. */
+  placeholder?: string;
 }
 
-export function DateField({ label, value, onChange, mode = 'date', optional, minimumDate, maximumDate }: Props) {
+export function DateField({ label, value, onChange, mode = 'date', optional, minimumDate, maximumDate, placeholder = 'Pick a date' }: Props) {
   const [showing, setShowing] = useState(false);
   const [tempDate, setTempDate] = useState<Date>(value ?? new Date());
 
@@ -35,18 +39,20 @@ export function DateField({ label, value, onChange, mode = 'date', optional, min
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.labelRow}>
-        <Text style={styles.label}>{label}</Text>
-        {optional && value ? (
-          <Pressable hitSlop={8} onPress={() => onChange(null)}>
-            <Text style={styles.clear}>Clear</Text>
-          </Pressable>
-        ) : null}
-      </View>
+      {label || optional ? (
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>{label}</Text>
+          {optional && value ? (
+            <Pressable hitSlop={8} onPress={() => onChange(null)}>
+              <Text style={styles.clear}>Clear</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
       <Pressable onPress={open} style={({ pressed }) => [styles.btn, pressed && { opacity: 0.85 }]}>
         <Ionicons name="calendar-outline" size={18} color={colors.primary} />
         <Text style={[styles.value, !value && { color: colors.textFaint }]}>
-          {value ? (mode === 'datetime' ? fmtRelative(value) : fmtDate(value)) : 'Pick a date'}
+          {value ? (mode === 'datetime' ? fmtRelative(value) : fmtDate(value)) : placeholder}
         </Text>
         <Ionicons name="chevron-down" size={16} color={colors.textFaint} />
       </Pressable>
@@ -59,7 +65,7 @@ export function DateField({ label, value, onChange, mode = 'date', optional, min
               <Pressable onPress={() => setShowing(false)} hitSlop={8}>
                 <Text style={styles.cancel}>Cancel</Text>
               </Pressable>
-              <Text style={styles.iosTitle}>{label}</Text>
+              <Text style={styles.iosTitle}>{label ?? 'Pick a date'}</Text>
               <Pressable onPress={() => { onChange(tempDate); setShowing(false); }} hitSlop={8}>
                 <Text style={styles.done}>Done</Text>
               </Pressable>

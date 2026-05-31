@@ -29,6 +29,7 @@ import type {
   Medication,
   PetShare,
   ShareRole,
+  Receipt,
 } from '@/types/models';
 
 // All user-scoped data lives at /users/{uid}/{collection}/{docId}. Firestore
@@ -42,6 +43,7 @@ const vaccinesCol = (uid: string) => collection(db, 'users', uid, 'vaccines');
 const docsCol = (uid: string) => collection(db, 'users', uid, 'documents');
 const weightsCol = (uid: string) => collection(db, 'users', uid, 'weights');
 const medsCol = (uid: string) => collection(db, 'users', uid, 'medications');
+const receiptsCol = (uid: string) => collection(db, 'users', uid, 'receipts');
 // Top-level: the same collection the web admin dashboard reads. Each
 // doc carries the author's uid so Firestore rules can enforce
 // "user can only write their own" + "any auth user can read their own".
@@ -180,6 +182,7 @@ export async function deleteAllUserData(uid: string): Promise<void> {
     docsCol(uid),
     weightsCol(uid),
     medsCol(uid),
+    receiptsCol(uid),
   ];
   for (const col of subcollections) {
     const snap = await getDocs(col);
@@ -605,7 +608,9 @@ export async function deletePet(uid: string, petId: string): Promise<void> {
 
   // Remaining single-pet child collections. (Multi-pet journal entries that
   // also cover other pets via `petIds` are intentionally left intact.)
-  const childCols = [vaccinesCol(uid), docsCol(uid), medsCol(uid), weightsCol(uid), entriesCol(uid)];
+  // Receipts are deleted by petId too, but household receipts (petId null)
+  // are left alone — the query below only matches this pet's own receipts.
+  const childCols = [vaccinesCol(uid), docsCol(uid), medsCol(uid), weightsCol(uid), entriesCol(uid), receiptsCol(uid)];
   for (const col of childCols) {
     const snap = await getDocs(query(col, where('petId', '==', petId)));
     await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
@@ -759,6 +764,29 @@ export async function deleteDocument(uid: string, documentId: string): Promise<v
 export async function countDocuments(uid: string): Promise<number> {
   const snap = await getDocs(docsCol(uid));
   return snap.size;
+}
+
+// --- Receipts (spending) ---
+
+export function watchReceipts(uid: string, cb: (receipts: Receipt[]) => void, onError?: (e: Error) => void): Unsubscribe {
+  const q = query(receiptsCol(uid), orderBy('date', 'desc'));
+  return onSnapshot(q, snap => {
+    cb(snap.docs.map(d => fromDoc<Receipt>(d)));
+  }, onError);
+}
+
+export async function createReceipt(uid: string, data: Omit<Receipt, 'id' | 'createdAt'>): Promise<string> {
+  const ref = doc(receiptsCol(uid));
+  await setDoc(ref, { ...data, createdAt: serverTimestamp() });
+  return ref.id;
+}
+
+export async function updateReceipt(uid: string, receiptId: string, data: Partial<Receipt>): Promise<void> {
+  await updateDoc(doc(receiptsCol(uid), receiptId), data);
+}
+
+export async function deleteReceipt(uid: string, receiptId: string): Promise<void> {
+  await deleteDoc(doc(receiptsCol(uid), receiptId));
 }
 
 // --- Weight logs ---

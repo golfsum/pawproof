@@ -337,6 +337,55 @@ export interface WeightLog {
   note?: string;
 }
 
+// Spending categories for scanned/added receipts (food, grooming, toys, …).
+// 'medical' covers vet/meds/pharmacy purchases that aren't a full vet
+// invoice. Keep in sync with RECEIPT_CATEGORY_META in src/utils/receiptCategory.ts.
+export type ReceiptCategory =
+  | 'food'
+  | 'treats'
+  | 'grooming'
+  | 'toys'
+  | 'supplies'
+  | 'medical'
+  | 'boarding'
+  | 'training'
+  | 'insurance'
+  | 'other';
+
+export interface ReceiptLineItem {
+  name: string;
+  /** Parsed price in dollars, or null if not confidently read. */
+  price?: number | null;
+}
+
+/**
+ * A purchase receipt (food, grooming, toys, supplies, etc.). Distinct from
+ * PetDocument(kind:'invoice'), which is specifically a vet invoice tied to
+ * vaccine extraction. Receipts power the spending view. `petId` is nullable
+ * so household-wide purchases (e.g. a shared bag of food) don't force a pet.
+ */
+export interface Receipt {
+  id: string;
+  petId: string | null;
+  category: ReceiptCategory;
+  /** Store / merchant name, e.g. "Chewy", "PetSmart". */
+  vendor: string;
+  /** Total in dollars (parsed). Null when it couldn't be read. */
+  amount: number | null;
+  /** Original total string as printed, e.g. "$42.99". Preserves fidelity. */
+  amountText: string;
+  /** Purchase date, ISO yyyy-mm-dd. */
+  date: string;
+  notes?: string;
+  /** Photo of the receipt in Storage, if one was attached. */
+  fileUrl?: string | null;
+  items?: ReceiptLineItem[];
+  ocrText?: string;
+  /** How it was created. */
+  source: 'scan' | 'manual';
+  createdAt: string;
+}
+
 export type MedicationFrequency =
   | 'once_daily'
   | 'twice_daily'
