@@ -111,18 +111,21 @@ export default function OnboardingScreen() {
   // Step 4 — scan prompt has no state; choice is "Scan" or "Later".
   const [finishing, setFinishing] = useState(false);
 
-  const finish = async (extra?: { goScan?: boolean }) => {
-    if (!user) return;
-    setFinishing(true);
-    try {
-      await markOnboardingComplete(user.uid, Array.from(interests));
-      if (extra?.goScan) {
-        router.replace('/document/scan');
-      } else {
-        router.replace('/(tabs)');
-      }
-    } finally {
-      setFinishing(false);
+  const finish = (extra?: { goScan?: boolean }) => {
+    // Navigate immediately. Persisting the onboardingCompleted flag must
+    // NEVER block leaving onboarding — if Firestore is slow or unreachable,
+    // awaiting the write would trap the user on this screen (this is why the
+    // Skip button looked dead). Fire it in the background; if it fails, the
+    // gate simply re-shows onboarding on a later launch once writes succeed.
+    if (user) {
+      markOnboardingComplete(user.uid, Array.from(interests)).catch(err => {
+        console.warn('[onboarding] markOnboardingComplete failed (will retry next launch)', err);
+      });
+    }
+    if (extra?.goScan) {
+      router.replace('/document/scan');
+    } else {
+      router.replace('/(tabs)');
     }
   };
 

@@ -13,7 +13,10 @@ service cloud.firestore {
     // granted server-side via the Admin SDK, which bypasses these rules).
     match /users/{uid} {
       allow read: if isOwner(uid);
-      allow create: if isOwner(uid) && !incoming().keys().hasAny(['isPremium']);
+      // Allow creating one's own profile as long as it isn't already
+      // premium (ensureUserProfile writes isPremium:false). Blocks a client
+      // from minting a premium profile; entitlements are set server-side.
+      allow create: if isOwner(uid) && incoming().get('isPremium', false) == false;
       allow update: if isOwner(uid)
         && !changing('isPremium')
         && !changing('freeOcrScansUsed'); // OCR quota is server-incremented
