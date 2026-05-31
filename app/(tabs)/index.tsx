@@ -69,10 +69,11 @@ export default function HomeScreen() {
 
   const greeting = useMemo(() => {
     const h = new Date().getHours();
-    if (h < 5) return 'Good evening';
-    if (h < 12) return 'Good morning';
-    if (h < 18) return 'Good afternoon';
-    return 'Good evening';
+    if (h < 5) return 'Good night';        // 12am–4:59am
+    if (h < 12) return 'Good morning';     // 5am–11:59am
+    if (h < 17) return 'Good afternoon';   // 12pm–4:59pm
+    if (h < 21) return 'Good evening';     // 5pm–8:59pm
+    return 'Good night';                   // 9pm–11:59pm
   }, []);
 
   const dueToday = useMemo(() => {

@@ -11,7 +11,7 @@ import { Chip } from '@/components/Chip';
 import { PetPicker } from '@/components/PetPicker';
 import { useAuth } from '@/hooks/AuthProvider';
 import { useData } from '@/hooks/useData';
-import { createDocument } from '@/lib/firestore';
+import { createDocument, createPet } from '@/lib/firestore';
 import { uploadFile, uploadCompressedPhoto } from '@/lib/storage';
 import { colors, radius, spacing } from '@/theme';
 import type { DocumentKind } from '@/types/models';
@@ -35,6 +35,11 @@ export default function UploadDocumentScreen() {
   const [fileUri, setFileUri] = useState<string | null>(null);
   const [fileMime, setFileMime] = useState<string>('image/jpeg');
   const [saving, setSaving] = useState(false);
+  // When the user has no pets yet, let them create one inline from the
+  // upload screen instead of getting blocked. The document is then attached
+  // to the newly created pet.
+  const hasNoPets = pets.length === 0;
+  const [newPetName, setNewPetName] = useState('');
 
   const pickImage = async (mode: 'camera' | 'library') => {
     const perm = mode === 'camera'
@@ -63,21 +68,31 @@ export default function UploadDocumentScreen() {
 
   const handleSave = async () => {
     if (!user) return;
-    if (!petId) {
-      Alert.alert('Pick a pet', 'Choose which pet this document is for.');
-      return;
-    }
     if (!fileUri) {
       Alert.alert('Pick a file', 'Take a photo, choose from your library, or pick a file.');
       return;
     }
+    // Resolve the target pet. If the user has no pets, create one on the fly
+    // from the name they entered (so an upload is never a dead end). If they
+    // do have pets, one must be selected.
+    if (!petId && !hasNoPets) {
+      Alert.alert('Pick a pet', 'Choose which pet this document is for.');
+      return;
+    }
     setSaving(true);
     try {
+      let targetPetId = petId;
+      if (!targetPetId) {
+        targetPetId = await createPet(user.uid, {
+          name: newPetName.trim() || 'My pet',
+          species: 'dog',
+        });
+      }
       const url = fileMime.startsWith('image/')
         ? await uploadCompressedPhoto(user.uid, fileUri, 'documents')
         : await uploadFile(user.uid, fileUri, 'documents', fileMime);
       await createDocument(user.uid, {
-        petId,
+        petId: targetPetId,
         fileUrl: url,
         fileType: fileMime,
         kind,
@@ -95,7 +110,24 @@ export default function UploadDocumentScreen() {
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Stack.Screen options={{ title: 'Add document' }} />
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <PetPicker pets={pets} selectedId={petId} onSelect={setPetId} />
+        {hasNoPets ? (
+          <View style={{ gap: 8 }}>
+            <Text style={styles.label}>New pet</Text>
+            <Text style={styles.helper}>
+              You don&apos;t have any pets yet. We&apos;ll create one for this
+              document. You can add the breed, birthday, and photo later from the
+              Pets tab.
+            </Text>
+            <FormField
+              label="Pet name"
+              value={newPetName}
+              onChangeText={setNewPetName}
+              placeholder="e.g. Yahzi"
+            />
+          </View>
+        ) : (
+          <PetPicker pets={pets} selectedId={petId} onSelect={setPetId} />
+        )}
 
         <View style={styles.previewWrap}>
           {fileUri && fileMime.startsWith('image/') ? (
@@ -156,6 +188,7 @@ function defaultTitle(kind: DocumentKind): string {
 const styles = StyleSheet.create({
   scroll: { padding: spacing.base, paddingBottom: spacing['3xl'], gap: spacing.md },
   label: { fontSize: 13, fontWeight: '600', color: colors.textMuted, marginLeft: 4 },
+  helper: { fontSize: 12, color: colors.textMuted, marginLeft: 4, lineHeight: 17 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   previewWrap: { gap: spacing.sm },
   preview: { width: '100%', height: 220, borderRadius: radius.lg, backgroundColor: colors.cardSubtle, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },

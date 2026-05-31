@@ -30,7 +30,12 @@ import type { ReminderType, Species } from '@/types/models';
 // onboardingCompleted !== true. Each step writes its own piece so a
 // user who bails midway still leaves a real pet behind.
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 'count' | 'pet' | 'interests' | 'reminders' | 'scan';
+const STEP_ORDER: Step[] = ['count', 'pet', 'interests', 'reminders', 'scan'];
+
+// Free tier covers up to 2 pets. The count step lets the user say how many
+// they have; we onboard up to this many and nudge Plus for larger households.
+const FREE_PET_LIMIT = 2;
 
 const SPECIES_OPTIONS: Species[] = ['dog', 'cat', 'bird', 'rabbit', 'reptile', 'fish', 'small_mammal', 'other'];
 
@@ -68,9 +73,17 @@ export default function OnboardingScreen() {
   const { user } = useAuth();
   const { check } = useGate();
 
-  const [step, setStep] = useState<Step>(1);
+  const [step, setStep] = useState<Step>('count');
 
-  // Step 1 — first pet
+  // Step "count" — how many pets the household has. `petGoal` is how many
+  // we'll onboard now (capped at FREE_PET_LIMIT); `hasMorePets` flags the
+  // 3+ case so we can show a Plus nudge at the end.
+  const [petGoal, setPetGoal] = useState(1);
+  const [hasMorePets, setHasMorePets] = useState(false);
+  // How many pets the user has actually saved so far in this flow.
+  const [petsSaved, setPetsSaved] = useState(0);
+
+  // Step "pet" — the add-pet form (reused for each pet in the loop).
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [species, setSpecies] = useState<Species>('dog');
@@ -78,6 +91,15 @@ export default function OnboardingScreen() {
   const [birthday, setBirthday] = useState<Date | null>(null);
   const [savingPet, setSavingPet] = useState(false);
   const [createdPetId, setCreatedPetId] = useState<string | null>(null);
+
+  // Reset the pet form so the next pet in the loop starts blank.
+  const resetPetForm = () => {
+    setPhotoUri(null);
+    setName('');
+    setSpecies('dog');
+    setBreed('');
+    setBirthday(null);
+  };
 
   // Step 2 — interests
   const [interests, setInterests] = useState<Set<string>>(new Set());
@@ -137,7 +159,16 @@ export default function OnboardingScreen() {
         photoUrl,
       });
       setCreatedPetId(id);
-      setStep(2);
+      const savedNow = petsSaved + 1;
+      setPetsSaved(savedNow);
+      // If the household has more pets to add (and we're under the free
+      // cap), loop back to a blank pet form. Otherwise move on to interests.
+      if (savedNow < petGoal) {
+        resetPetForm();
+        // stay on the 'pet' step for the next pet
+      } else {
+        setStep('interests');
+      }
     } catch (e: any) {
       Alert.alert('Could not save', e?.message ?? 'Try again.');
     } finally {
@@ -147,11 +178,11 @@ export default function OnboardingScreen() {
 
   const saveReminders = async () => {
     if (!user || !createdPetId) {
-      setStep(4);
+      setStep('scan');
       return;
     }
     if (selectedReminders.size === 0) {
-      setStep(4);
+      setStep('scan');
       return;
     }
     setSavingReminders(true);
@@ -179,7 +210,7 @@ export default function OnboardingScreen() {
           notificationId: notifId,
         });
       }
-      setStep(4);
+      setStep('scan');
     } catch (e: any) {
       Alert.alert('Could not save reminders', e?.message ?? 'Try again.');
     } finally {
@@ -193,10 +224,13 @@ export default function OnboardingScreen() {
 
       <View style={styles.topBar}>
         <View style={styles.steps}>
-          {[1, 2, 3, 4].map(n => (
+          {STEP_ORDER.map((s, i) => (
             <View
-              key={n}
-              style={[styles.stepDot, step >= n ? { backgroundColor: colors.primary } : null]}
+              key={s}
+              style={[
+                styles.stepDot,
+                i <= STEP_ORDER.indexOf(step) ? { backgroundColor: colors.primary } : null,
+              ]}
             />
           ))}
         </View>
@@ -207,11 +241,65 @@ export default function OnboardingScreen() {
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          {step === 1 ? (
+          {step === 'count' ? (
             <>
               <Header
                 icon="paw"
-                title="Add your first pet"
+                title="How many pets do you have?"
+                body="We'll set up a profile for each one. You can always add or remove pets later."
+              />
+              <View style={styles.countRow}>
+                {[1, 2].map(n => (
+                  <Pressable
+                    key={n}
+                    onPress={() => { setPetGoal(n); setHasMorePets(false); }}
+                    style={({ pressed }) => [
+                      styles.countTile,
+                      petGoal === n && !hasMorePets && styles.countTileOn,
+                      pressed && { opacity: 0.9 },
+                    ]}
+                  >
+                    <Text style={[styles.countNum, petGoal === n && !hasMorePets && styles.countNumOn]}>{n}</Text>
+                    <Text style={[styles.countLabel, petGoal === n && !hasMorePets && styles.countLabelOn]}>
+                      {n === 1 ? 'pet' : 'pets'}
+                    </Text>
+                  </Pressable>
+                ))}
+                <Pressable
+                  onPress={() => { setPetGoal(FREE_PET_LIMIT); setHasMorePets(true); }}
+                  style={({ pressed }) => [
+                    styles.countTile,
+                    hasMorePets && styles.countTileOn,
+                    pressed && { opacity: 0.9 },
+                  ]}
+                >
+                  <Text style={[styles.countNum, hasMorePets && styles.countNumOn]}>3+</Text>
+                  <Text style={[styles.countLabel, hasMorePets && styles.countLabelOn]}>pets</Text>
+                </Pressable>
+              </View>
+              {hasMorePets ? (
+                <Text style={styles.countNote}>
+                  The free plan covers {FREE_PET_LIMIT} pets. Add your first {FREE_PET_LIMIT} now and
+                  unlock the rest with PawProof Plus anytime.
+                </Text>
+              ) : null}
+              <PrimaryButton
+                title="Continue"
+                onPress={() => setStep('pet')}
+                icon="arrow-forward-outline"
+              />
+            </>
+          ) : null}
+
+          {step === 'pet' ? (
+            <>
+              <Header
+                icon="paw"
+                title={
+                  petGoal > 1
+                    ? `Add pet ${petsSaved + 1} of ${petGoal}`
+                    : 'Add your first pet'
+                }
                 body="Just the basics for now. You can add more details later in their profile."
               />
               <View style={styles.formCard}>
@@ -260,7 +348,7 @@ export default function OnboardingScreen() {
             </>
           ) : null}
 
-          {step === 2 ? (
+          {step === 'interests' ? (
             <>
               <Header
                 icon="checkmark-done-outline"
@@ -286,16 +374,16 @@ export default function OnboardingScreen() {
               </View>
               <PrimaryButton
                 title="Continue"
-                onPress={() => setStep(3)}
+                onPress={() => setStep('reminders')}
                 icon="arrow-forward-outline"
               />
-              <Pressable onPress={() => setStep(3)} style={styles.secondaryBtn}>
+              <Pressable onPress={() => setStep('reminders')} style={styles.secondaryBtn}>
                 <Text style={styles.secondaryText}>Skip this step</Text>
               </Pressable>
             </>
           ) : null}
 
-          {step === 3 ? (
+          {step === 'reminders' ? (
             <>
               <Header
                 icon="alarm-outline"
@@ -339,13 +427,13 @@ export default function OnboardingScreen() {
                 loading={savingReminders}
                 icon="arrow-forward-outline"
               />
-              <Pressable onPress={() => setStep(4)} style={styles.secondaryBtn}>
+              <Pressable onPress={() => setStep('scan')} style={styles.secondaryBtn}>
                 <Text style={styles.secondaryText}>Skip this step</Text>
               </Pressable>
             </>
           ) : null}
 
-          {step === 4 ? (
+          {step === 'scan' ? (
             <>
               <Header
                 icon="scan-outline"
@@ -487,6 +575,35 @@ const styles = StyleSheet.create({
   },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
+
+  // "How many pets" count picker.
+  countRow: { flexDirection: 'row', gap: spacing.md, justifyContent: 'center' },
+  countTile: {
+    flex: 1,
+    maxWidth: 110,
+    aspectRatio: 1,
+    borderRadius: radius.lg,
+    backgroundColor: colors.card,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  countTileOn: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+  countNum: { fontSize: 32, fontFamily: fonts.display.bold, color: colors.text },
+  countNumOn: { color: colors.primary },
+  countLabel: { fontSize: 13, color: colors.textMuted },
+  countLabelOn: { color: colors.primary },
+  countNote: {
+    fontSize: 13,
+    color: colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 19,
+    backgroundColor: colors.primarySoft,
+    padding: spacing.md,
+    borderRadius: radius.md,
+  },
 
   suggestionRow: {
     flexDirection: 'row',
