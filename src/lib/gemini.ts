@@ -352,6 +352,7 @@ export interface InvoiceOcrResult {
   invoiceNumber: string | null;
   vaccinesAdministered: InvoiceVaccineGiven[];
   vaccinesDue: InvoiceVaccineDue[];
+  petDetails?: ExtractedPetDetails;
 }
 
 const INVOICE_PROMPT = `You are an OCR assistant for a pet care app. The user uploads a photo of a veterinary INVOICE, visit summary, or "services rendered" sheet.

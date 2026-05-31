@@ -115,12 +115,12 @@ export default function CareInstructionsScreen() {
     setSaving(true);
     try {
       await updatePet(user.uid, pet.id, {
-        feedingInstructions: values.feedingInstructions.trim() || null,
-        walkRoutine: values.walkRoutine.trim() || null,
-        behaviorNotes: values.behaviorNotes.trim() || null,
-        boardingInstructions: values.boardingInstructions.trim() || null,
-        favoriteThings: values.favoriteThings.trim() || null,
-        allergies: values.allergies.trim() || null,
+        feedingInstructions: values.feedingInstructions.trim() || undefined,
+        walkRoutine: values.walkRoutine.trim() || undefined,
+        behaviorNotes: values.behaviorNotes.trim() || undefined,
+        boardingInstructions: values.boardingInstructions.trim() || undefined,
+        favoriteThings: values.favoriteThings.trim() || undefined,
+        allergies: values.allergies.trim() || undefined,
       });
       router.back();
     } catch (e: any) {

@@ -303,7 +303,7 @@ export default function OnboardingScreen() {
                 body="Just the basics for now. You can add more details later in their profile."
               />
               <View style={styles.formCard}>
-                <PhotoPicker uri={photoUri} onChange={setPhotoUri} />
+                <PhotoPicker value={photoUri} onChange={setPhotoUri} />
                 <Field label="Name">
                   <TextInput
                     value={name}

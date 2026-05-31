@@ -72,7 +72,7 @@ export default function PetProfileScreen() {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          title: `Log care for ${pet.name}`,
+          title: `Log care for ${pet?.name ?? 'your pet'}`,
           options: [...options.map(o => o.label), 'Cancel'],
           cancelButtonIndex: options.length,
         },
@@ -81,7 +81,7 @@ export default function PetProfileScreen() {
         },
       );
     } else {
-      Alert.alert(`Log care for ${pet.name}`, undefined, [
+      Alert.alert(`Log care for ${pet?.name ?? 'your pet'}`, undefined, [
         ...options.map(o => ({ text: o.label, onPress: () => setQuickLogKind(o.kind) })),
         { text: 'Cancel', style: 'cancel' as const },
       ]);
