@@ -95,6 +95,13 @@ export default function SettingsScreen() {
         />
 
         <Row
+          icon="sparkles-outline"
+          title="Replay setup"
+          subtitle="Walk through the welcome flow again — add pets, pick what to track"
+          onPress={() => router.push('/onboarding')}
+        />
+
+        <Row
           icon="speedometer-outline"
           title="Units"
           subtitle="Miles or kilometers for walks and summaries"
