@@ -73,6 +73,6 @@ service cloud.firestore {
     function changing(field) {
       return incoming().diff(resource.data).affectedKeys().hasAny([field]);
     }
-    function lower(s) { return s == null ? null : s.lower(); }
+    function lower(s) { return s == null ? '' : s.lower(); }
   }
 }
