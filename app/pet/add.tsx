@@ -43,6 +43,7 @@ export default function AddPetScreen() {
   const [notes, setNotes] = useState('');
   const [emergencyNotes, setEmergencyNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('');
 
   const handleSave = async () => {
     if (!user) return;
@@ -76,6 +77,7 @@ export default function AddPetScreen() {
     // couldn't be uploaded.
     if (photoUri) {
       try {
+        setSaveStatus('Uploading photo…');
         photoUrl = await uploadCompressedPhoto(user.uid, photoUri, 'pets');
       } catch (e: any) {
         photoUploadFailure = e?.message ?? 'Upload failed.';
@@ -83,6 +85,7 @@ export default function AddPetScreen() {
       }
     }
     try {
+      setSaveStatus('Saving…');
       const id = await createPet(user.uid, {
         name: name.trim(),
         species,
@@ -115,6 +118,7 @@ export default function AddPetScreen() {
       Alert.alert('Could not save', e?.message ?? 'Try again.');
     } finally {
       setSaving(false);
+      setSaveStatus('');
     }
   };
 
@@ -250,7 +254,7 @@ export default function AddPetScreen() {
           style={{ minHeight: 80, textAlignVertical: 'top' }}
         />
 
-        <PrimaryButton title="Save pet" onPress={handleSave} loading={saving} />
+        <PrimaryButton title="Save pet" onPress={handleSave} loading={saving} loadingLabel={saveStatus || 'Saving…'} />
         <Text style={[typography.caption, { textAlign: 'center' }]}>
           You can edit this profile anytime.
         </Text>

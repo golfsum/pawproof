@@ -345,6 +345,7 @@ export default function OnboardingScreen() {
                 title="Continue"
                 onPress={savePet}
                 loading={savingPet}
+                loadingLabel={photoUri ? 'Uploading photo…' : 'Saving…'}
                 disabled={!name.trim()}
                 icon="arrow-forward-outline"
               />

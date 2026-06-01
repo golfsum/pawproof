@@ -7,13 +7,16 @@ interface Props {
   title: string;
   onPress: () => void;
   loading?: boolean;
+  /** Text shown next to the spinner while loading (e.g. "Uploading…").
+   *  Falls back to a bare spinner when omitted. */
+  loadingLabel?: string;
   disabled?: boolean;
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
   icon?: keyof typeof Ionicons.glyphMap;
   style?: ViewStyle;
 }
 
-export function PrimaryButton({ title, onPress, loading, disabled, variant = 'primary', icon, style }: Props) {
+export function PrimaryButton({ title, onPress, loading, loadingLabel, disabled, variant = 'primary', icon, style }: Props) {
   const isDisabled = disabled || loading;
 
   const containerStyle: ViewStyle[] = [styles.base];
@@ -41,7 +44,12 @@ export function PrimaryButton({ title, onPress, loading, disabled, variant = 'pr
       style={({ pressed }) => [...containerStyle, pressed && !isDisabled && styles.pressed]}
     >
       {loading ? (
-        <ActivityIndicator color={textColor} />
+        <View style={styles.row}>
+          <ActivityIndicator color={textColor} />
+          {loadingLabel ? (
+            <Text style={[styles.text, { color: textColor, marginLeft: spacing.sm }]}>{loadingLabel}</Text>
+          ) : null}
+        </View>
       ) : (
         <View style={styles.row}>
           {icon ? <Ionicons name={icon} size={18} color={textColor} style={styles.icon} /> : null}

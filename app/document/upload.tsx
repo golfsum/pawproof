@@ -35,6 +35,8 @@ export default function UploadDocumentScreen() {
   const [fileUri, setFileUri] = useState<string | null>(null);
   const [fileMime, setFileMime] = useState<string>('image/jpeg');
   const [saving, setSaving] = useState(false);
+  // Staged status shown on the Save button so the upload doesn't look frozen.
+  const [saveStatus, setSaveStatus] = useState('');
   // When the user has no pets yet, let them create one inline from the
   // upload screen instead of getting blocked. The document is then attached
   // to the newly created pet.
@@ -83,14 +85,17 @@ export default function UploadDocumentScreen() {
     try {
       let targetPetId = petId;
       if (!targetPetId) {
+        setSaveStatus('Creating pet…');
         targetPetId = await createPet(user.uid, {
           name: newPetName.trim() || 'My pet',
           species: 'dog',
         });
       }
+      setSaveStatus(fileMime.startsWith('image/') ? 'Compressing photo…' : 'Uploading file…');
       const url = fileMime.startsWith('image/')
         ? await uploadCompressedPhoto(user.uid, fileUri, 'documents')
         : await uploadFile(user.uid, fileUri, 'documents', fileMime);
+      setSaveStatus('Saving…');
       await createDocument(user.uid, {
         petId: targetPetId,
         fileUrl: url,
@@ -103,6 +108,7 @@ export default function UploadDocumentScreen() {
       Alert.alert('Could not upload', e?.message ?? 'Try again.');
     } finally {
       setSaving(false);
+      setSaveStatus('');
     }
   };
 
@@ -170,7 +176,7 @@ export default function UploadDocumentScreen() {
 
         <FormField label="Title" value={title} onChangeText={setTitle} placeholder={defaultTitle(kind)} />
 
-        <PrimaryButton title="Save document" onPress={handleSave} loading={saving} />
+        <PrimaryButton title="Save document" onPress={handleSave} loading={saving} loadingLabel={saveStatus || 'Saving…'} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
