@@ -551,39 +551,28 @@ export async function getPet(uid: string, petId: string): Promise<Pet | null> {
 }
 
 export async function createPet(uid: string, data: Omit<Pet, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
-  const ref = doc(petsCol(uid));
-  console.log('[firestore] createPet → setDoc', { path: ref.path, uid });
   const now = new Date().toISOString();
-  await withTimeout(
-    setDoc(ref, {
-      ...data,
-      // Use client-side ISO timestamps. serverTimestamp() relies on the write
-      // being ack'd by the server before the promise resolves; if the
-      // transport is wedged the promise hangs forever. ISO strings let the
-      // write complete locally and replicate when the connection wakes up.
-      createdAt: now,
-      updatedAt: now,
-    }),
-    15_000,
-    'createPet',
-  );
-  console.log('[firestore] createPet ✓', ref.id);
-  return ref.id;
+  return optimisticCreate(doc(petsCol(uid)), { ...data, createdAt: now, updatedAt: now }, 'createPet');
 }
 
-async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
-  let to: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    to = setTimeout(
-      () => reject(new Error(`${label} timed out after ${ms / 1000}s. Firestore is not reaching the server. Check console for [firebase] logs and your network.`)),
-      ms,
-    );
+// Optimistic create. Firestore offline persistence commits the write to the
+// local cache synchronously and fires onSnapshot listeners immediately, but
+// the setDoc promise only resolves once the SERVER acknowledges — which on a
+// slow/long-polling mobile connection can take many seconds or stall. Awaiting
+// it makes "save" buttons hang and then error even though the data already
+// saved. So we generate the id client-side, fire the write WITHOUT awaiting the
+// ack, and return immediately. The `createdAt` is a client ISO string (not
+// serverTimestamp()) so the cached doc is complete and sorts correctly in
+// orderBy('createdAt') lists before the server round-trip finishes.
+function optimisticCreate(
+  ref: ReturnType<typeof doc>,
+  data: Record<string, unknown>,
+  label: string,
+): string {
+  setDoc(ref, data).catch(err => {
+    console.warn(`[firestore] ${label} background sync failed (will retry when online):`, err);
   });
-  try {
-    return await Promise.race([p, timeout]);
-  } finally {
-    if (to) clearTimeout(to);
-  }
+  return ref.id;
 }
 
 export async function updatePet(uid: string, petId: string, data: Partial<Pet>): Promise<void> {
@@ -652,9 +641,7 @@ export function watchEntriesForPet(uid: string, petId: string, cb: (entries: Jou
 }
 
 export async function createEntry(uid: string, data: Omit<JournalEntry, 'id' | 'createdAt'>): Promise<string> {
-  const ref = doc(entriesCol(uid));
-  await setDoc(ref, { ...data, createdAt: serverTimestamp() });
-  return ref.id;
+  return optimisticCreate(doc(entriesCol(uid)), { ...data, createdAt: new Date().toISOString() }, 'createEntry');
 }
 
 export async function deleteEntry(uid: string, entryId: string): Promise<void> {
@@ -678,9 +665,7 @@ export function watchRemindersForPet(uid: string, petId: string, cb: (reminders:
 }
 
 export async function createReminder(uid: string, data: Omit<Reminder, 'id' | 'createdAt'>): Promise<string> {
-  const ref = doc(remindersCol(uid));
-  await setDoc(ref, { ...data, createdAt: serverTimestamp() });
-  return ref.id;
+  return optimisticCreate(doc(remindersCol(uid)), { ...data, createdAt: new Date().toISOString() }, 'createReminder');
 }
 
 export async function updateReminder(uid: string, reminderId: string, data: Partial<Reminder>): Promise<void> {
@@ -708,9 +693,7 @@ export function watchVaccinesForPet(uid: string, petId: string, cb: (records: Va
 }
 
 export async function createVaccine(uid: string, data: Omit<VaccineRecord, 'id' | 'createdAt'>): Promise<string> {
-  const ref = doc(vaccinesCol(uid));
-  await setDoc(ref, { ...data, createdAt: serverTimestamp() });
-  return ref.id;
+  return optimisticCreate(doc(vaccinesCol(uid)), { ...data, createdAt: new Date().toISOString() }, 'createVaccine');
 }
 
 export async function updateVaccine(uid: string, vaccineId: string, data: Partial<VaccineRecord>): Promise<void> {
@@ -752,9 +735,7 @@ export function watchDocumentsForPet(uid: string, petId: string, cb: (docs: PetD
 }
 
 export async function createDocument(uid: string, data: Omit<PetDocument, 'id' | 'createdAt'>): Promise<string> {
-  const ref = doc(docsCol(uid));
-  await setDoc(ref, { ...data, createdAt: serverTimestamp() });
-  return ref.id;
+  return optimisticCreate(doc(docsCol(uid)), { ...data, createdAt: new Date().toISOString() }, 'createDocument');
 }
 
 export async function deleteDocument(uid: string, documentId: string): Promise<void> {
@@ -776,9 +757,7 @@ export function watchReceipts(uid: string, cb: (receipts: Receipt[]) => void, on
 }
 
 export async function createReceipt(uid: string, data: Omit<Receipt, 'id' | 'createdAt'>): Promise<string> {
-  const ref = doc(receiptsCol(uid));
-  await setDoc(ref, { ...data, createdAt: serverTimestamp() });
-  return ref.id;
+  return optimisticCreate(doc(receiptsCol(uid)), { ...data, createdAt: new Date().toISOString() }, 'createReceipt');
 }
 
 export async function updateReceipt(uid: string, receiptId: string, data: Partial<Receipt>): Promise<void> {
@@ -799,9 +778,7 @@ export function watchWeightsForPet(uid: string, petId: string, cb: (logs: Weight
 }
 
 export async function createWeightLog(uid: string, data: Omit<WeightLog, 'id'>): Promise<string> {
-  const ref = doc(weightsCol(uid));
-  await setDoc(ref, data);
-  return ref.id;
+  return optimisticCreate(doc(weightsCol(uid)), { ...data }, 'createWeightLog');
 }
 
 // --- Medications ---
@@ -821,9 +798,7 @@ export function watchMedicationsForPet(uid: string, petId: string, cb: (meds: Me
 }
 
 export async function createMedication(uid: string, data: Omit<Medication, 'id' | 'createdAt'>): Promise<string> {
-  const ref = doc(medsCol(uid));
-  await setDoc(ref, { ...data, createdAt: serverTimestamp() });
-  return ref.id;
+  return optimisticCreate(doc(medsCol(uid)), { ...data, createdAt: new Date().toISOString() }, 'createMedication');
 }
 
 export async function updateMedication(uid: string, medId: string, data: Partial<Medication>): Promise<void> {
