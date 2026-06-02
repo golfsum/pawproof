@@ -14,6 +14,7 @@ import {
   serverTimestamp,
   onSnapshot,
   increment,
+  waitForPendingWrites,
   Unsubscribe,
 } from 'firebase/firestore';
 import { db } from './firebase';
@@ -555,16 +556,15 @@ export async function createPet(uid: string, data: Omit<Pet, 'id' | 'createdAt' 
   return createDoc(doc(petsCol(uid)), { ...data, createdAt: now, updatedAt: now }, 'createPet');
 }
 
-// Durable create. We MUST await the server acknowledgment: the Firebase JS
-// SDK in React Native uses an in-memory cache only (on-disk persistence needs
-// IndexedDB, which doesn't exist in RN/Hermes — only @react-native-firebase
-// has it). So a write that hasn't reached the server is lost when the app is
-// closed. An earlier "optimistic" version returned before the ack and caused
-// pets to vanish on relaunch. We await setDoc (resolves once the write is
-// committed server-side) and wrap it in a timeout so a genuinely stalled
-// connection surfaces a retryable error instead of hanging forever. The
-// `createdAt` is a client ISO string so orderBy('createdAt') lists sort
-// correctly without waiting on serverTimestamp() to resolve.
+// Durable create. CRITICAL: setDoc()'s promise resolves once the write hits
+// the LOCAL cache, NOT when the server acknowledges. In React Native the
+// Firebase JS SDK uses an in-memory cache only (on-disk persistence needs
+// IndexedDB, absent in RN/Hermes), so a write that's only in cache is LOST
+// when the app closes — pets vanished on relaunch. To make the write durable
+// we await waitForPendingWrites(), which resolves only after the backend has
+// acknowledged ALL pending writes. A timeout converts a stalled connection
+// into a visible, retryable error instead of a silent loss. `createdAt` is a
+// client ISO string so orderBy('createdAt') lists sort correctly immediately.
 async function createDoc(
   ref: ReturnType<typeof doc>,
   data: Record<string, unknown>,
@@ -578,8 +578,14 @@ async function createDoc(
     );
   });
   try {
-    await Promise.race([setDoc(ref, data), timeout]);
+    // Commit to cache (fast) then wait for the server to actually persist it.
+    await setDoc(ref, data);
+    await Promise.race([waitForPendingWrites(db), timeout]);
+    console.log(`[firestore] ${label} ✓ acknowledged by server`, ref.path);
     return ref.id;
+  } catch (err) {
+    console.error(`[firestore] ${label} ✗ failed to persist`, ref.path, err);
+    throw err;
   } finally {
     if (to) clearTimeout(to);
   }
