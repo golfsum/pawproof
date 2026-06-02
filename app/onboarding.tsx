@@ -71,7 +71,7 @@ const REMINDER_SUGGESTIONS: ReminderSuggestion[] = [
 export default function OnboardingScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { check } = useGate();
+  const { check, isPremium } = useGate();
 
   const [step, setStep] = useState<Step>('count');
 
@@ -269,7 +269,24 @@ export default function OnboardingScreen() {
                   </Pressable>
                 ))}
                 <Pressable
-                  onPress={() => { setPetGoal(FREE_PET_LIMIT); setHasMorePets(true); }}
+                  onPress={() => {
+                    setHasMorePets(true);
+                    if (isPremium) {
+                      // Plus members have unlimited pets — no cap to apply.
+                      setPetGoal(3);
+                    } else {
+                      // Free tier caps at 2. Show the paywall explaining the
+                      // 3-pet limit; they can upgrade or keep going with 2.
+                      setPetGoal(FREE_PET_LIMIT);
+                      router.push({
+                        pathname: '/paywall',
+                        params: {
+                          gate: 'add_pet',
+                          reason: `The free plan includes ${FREE_PET_LIMIT} pets. Upgrade to PawProof Plus for unlimited pets, or continue free with up to ${FREE_PET_LIMIT}.`,
+                        },
+                      });
+                    }
+                  }}
                   style={({ pressed }) => [
                     styles.countTile,
                     hasMorePets && styles.countTileOn,
@@ -280,7 +297,7 @@ export default function OnboardingScreen() {
                   <Text style={[styles.countLabel, hasMorePets && styles.countLabelOn]}>pets</Text>
                 </Pressable>
               </View>
-              {hasMorePets ? (
+              {hasMorePets && !isPremium ? (
                 <Text style={styles.countNote}>
                   The free plan covers {FREE_PET_LIMIT} pets. Add your first {FREE_PET_LIMIT} now and
                   unlock the rest with PawProof Plus anytime.
