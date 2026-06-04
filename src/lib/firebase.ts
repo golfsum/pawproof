@@ -9,14 +9,25 @@ import {
 import { initializeFirestore, getFirestore, Firestore } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
+
+// Source of truth for Firebase config: app.json → extra.firebase (baked into
+// every build, can't be broken by a wrong/missing EAS env var). These values
+// are NOT secret — they ship in every client binary by design; security is
+// enforced by Firestore/Storage rules. Fall back to EXPO_PUBLIC_* env vars
+// (used by `expo start` from .env) only when the bundled config is absent.
+const bundled = (Constants.expoConfig?.extra?.firebase ?? {}) as Partial<{
+  apiKey: string; authDomain: string; projectId: string;
+  storageBucket: string; messagingSenderId: string; appId: string;
+}>;
 
 const firebaseConfig = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+  apiKey: bundled.apiKey ?? process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: bundled.authDomain ?? process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: bundled.projectId ?? process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: bundled.storageBucket ?? process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: bundled.messagingSenderId ?? process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: bundled.appId ?? process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
 let app: FirebaseApp;

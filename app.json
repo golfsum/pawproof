@@ -73,6 +73,14 @@
       },
       "eas": {
         "projectId": "2a49e32a-c44b-4280-b17f-20a2de25cb26"
+      },
+      "firebase": {
+        "apiKey": "AIzaSyAjUwgJm28jODhyz6WlK-F6EnW9AsXlhpI",
+        "authDomain": "pawproof-ab9de.firebaseapp.com",
+        "projectId": "pawproof-ab9de",
+        "storageBucket": "pawproof-ab9de.firebasestorage.app",
+        "messagingSenderId": "157335586328",
+        "appId": "1:157335586328:web:47e7a1d7eafd3d7f65256d"
       }
     }
   }
