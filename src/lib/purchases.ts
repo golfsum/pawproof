@@ -1,19 +1,23 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import Purchases, {
   type CustomerInfo,
   type PurchasesPackage,
   LOG_LEVEL,
 } from 'react-native-purchases';
 
-// RevenueCat integration. The public SDK key is NOT a secret (it's safe in the
-// client) and is read from EXPO_PUBLIC_REVENUECAT_IOS_KEY. The entitlement
-// "plus" is the single source of truth for premium access — granted by Apple's
-// receipt via RevenueCat, so it survives reinstalls and reflects real renewals
-// / cancellations (which is what makes downgrade detection possible).
+// RevenueCat integration. The public SDK key is NOT a secret (safe in the
+// client). The "plus" entitlement is the single source of truth for premium —
+// granted by Apple's receipt via RevenueCat, so it survives reinstalls and
+// reflects real renewals/cancellations (which powers downgrade detection).
 
 export const PLUS_ENTITLEMENT = 'plus';
 
-const IOS_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? '';
+// Prefer the EXPO_PUBLIC_ env var; fall back to app.json -> extra.revenueCatIosKey
+// so a misconfigured EAS env can't silently disable billing in a build.
+const IOS_KEY =
+  process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ||
+  ((Constants.expoConfig?.extra as { revenueCatIosKey?: string } | undefined)?.revenueCatIosKey ?? '');
 
 let configured = false;
 
