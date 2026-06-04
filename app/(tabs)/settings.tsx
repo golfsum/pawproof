@@ -7,7 +7,6 @@ import { TabsHeader } from '@/components/TabsHeader';
 import { ReportIssueSheet } from '@/components/ReportIssueSheet';
 import { useAuth } from '@/hooks/AuthProvider';
 import { useData } from '@/hooks/useData';
-import { db } from '@/lib/firebase';
 import { colors, radius, spacing, typography } from '@/theme';
 
 export default function SettingsScreen() {
@@ -15,11 +14,6 @@ export default function SettingsScreen() {
   const { user, profile, signOut, togglePremium } = useAuth();
   const { pets, documents } = useData();
   const [reportOpen, setReportOpen] = useState(false);
-
-  // Diagnostic snapshot: which identity + project this session is actually
-  // using. Compare against the Firebase console to spot a uid/project
-  // mismatch (the usual cause of "my data isn't showing up").
-  const projectId = (db as unknown as { app?: { options?: { projectId?: string } } })?.app?.options?.projectId;
 
   const handleSignOut = () => {
     Alert.alert('Sign out?', 'You can sign back in anytime.', [
@@ -56,19 +50,6 @@ export default function SettingsScreen() {
               <Text style={styles.plusText}>PLUS</Text>
             </View>
           ) : null}
-        </View>
-
-        {/* Diagnostics — compare these against the Firebase console to spot a
-            uid/project mismatch (the usual cause of "my data isn't showing").
-            Safe to remove once the save/sync issue is confirmed fixed. */}
-        <View style={styles.debugCard}>
-          <Text style={styles.debugTitle}>Diagnostics</Text>
-          <Text style={styles.debugLine}>project: {projectId ?? '— (config missing!)'}</Text>
-          <Text style={styles.debugLine} selectable>uid: {user?.uid ?? 'signed out'}</Text>
-          <Text style={styles.debugLine}>email: {user?.email ?? profile?.email ?? '—'}</Text>
-          <Text style={styles.debugLine}>
-            live data: {pets.length} pets · {documents.length} docs
-          </Text>
         </View>
 
         <Row
@@ -111,13 +92,6 @@ export default function SettingsScreen() {
           title="Notifications"
           subtitle="Grouping, vaccine warnings, and iOS permissions"
           onPress={() => router.push('/settings/notifications')}
-        />
-
-        <Row
-          icon="sparkles-outline"
-          title="Replay setup"
-          subtitle="Walk through the welcome flow again — add pets, pick what to track"
-          onPress={() => router.push('/onboarding')}
         />
 
         <Row
@@ -310,14 +284,4 @@ const styles = StyleSheet.create({
   },
   signOutText: { color: colors.danger, fontWeight: '600' },
   fineprint: { textAlign: 'center', color: colors.textFaint, fontSize: 11, marginTop: spacing.md },
-  debugCard: {
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 2,
-  },
-  debugTitle: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', color: colors.textMuted, marginBottom: 4 },
-  debugLine: { fontSize: 12, color: colors.textMuted, fontFamily: 'Courier' },
 });
