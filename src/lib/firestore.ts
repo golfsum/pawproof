@@ -551,6 +551,12 @@ export async function getPet(uid: string, petId: string): Promise<Pet | null> {
   return fromDoc<Pet>({ id: snap.id, data: () => snap.data() });
 }
 
+// Park/unpark a pet (downgrade read-only handling). Data is preserved either
+// way; `inactive` just controls whether the pet can be logged to.
+export async function setPetActive(uid: string, petId: string, active: boolean): Promise<void> {
+  await updateDoc(doc(petsCol(uid), petId), { inactive: !active, updatedAt: serverTimestamp() });
+}
+
 export async function createPet(uid: string, data: Omit<Pet, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
   const now = new Date().toISOString();
   return createDoc(doc(petsCol(uid)), { ...data, createdAt: now, updatedAt: now }, 'createPet');

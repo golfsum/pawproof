@@ -13,8 +13,9 @@ import {
 } from '@expo-google-fonts/plus-jakarta-sans';
 import { Quicksand_600SemiBold, Quicksand_700Bold } from '@expo-google-fonts/quicksand';
 import { AuthProvider, useAuth } from '@/hooks/AuthProvider';
-import { DataProvider } from '@/hooks/useData';
+import { DataProvider, useData } from '@/hooks/useData';
 import { setupAndroidChannel } from '@/lib/notifications';
+import { FREE_LIMITS } from '@/lib/premium';
 import { AnimatedSplash } from '@/components/AnimatedSplash';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { colors, fonts } from '@/theme';
@@ -32,6 +33,7 @@ setTimeout(() => {
 
 function RootNav() {
   const { user, profile, initializing } = useAuth();
+  const { pets } = useData();
   const segments = useSegments();
   const router = useRouter();
   const [splashUnmounted, setSplashUnmounted] = useState(false);
@@ -61,8 +63,22 @@ function RootNav() {
     // detour stops firing on subsequent sign-ins.
     if (user && profile && !profile.onboardingCompleted && !inOnboarding && !inAuthGroup) {
       router.replace('/onboarding');
+      return;
     }
-  }, [user, profile, initializing, segments]);
+
+    // Downgrade gate: a non-premium user with more ACTIVE pets than the free
+    // limit must reconcile (pick which to keep / upgrade) before using the app.
+    // Counts only non-inactive pets so it stops firing once they've parked the
+    // extras. Skipped during onboarding/auth so those flows aren't interrupted.
+    const activePets = pets.filter(p => !p.inactive).length;
+    const inDowngrade = (segments[0] as string) === 'downgrade';
+    if (
+      user && profile && profile.onboardingCompleted && !profile.isPremium &&
+      activePets > FREE_LIMITS.pets && !inDowngrade && !inOnboarding && !inAuthGroup
+    ) {
+      router.replace('/downgrade' as never);
+    }
+  }, [user, profile, initializing, segments, pets]);
 
   return (
     <>
@@ -110,6 +126,7 @@ function RootNav() {
         <Stack.Screen name="support/index" options={{ title: 'Support' }} />
         <Stack.Screen name="support/[id]" options={{ title: 'Ticket' }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
+        <Stack.Screen name="downgrade" options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="data/export" options={{ title: 'Your data' }} />
         <Stack.Screen name="pet/share/[id]" options={{ presentation: 'modal' }} />
         <Stack.Screen name="pet/care/[id]" options={{ title: 'Care instructions', presentation: 'modal' }} />

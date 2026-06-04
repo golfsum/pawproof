@@ -9,11 +9,15 @@ export function useGate() {
   const { profile } = useAuth();
   const { pets, documents } = useData();
 
+  // The free pet limit counts only ACTIVE pets, so a free user with parked
+  // (inactive) pets still can't exceed the active limit.
+  const activePetCount = pets.filter(p => !p.inactive).length;
+
   const check = useCallback(
     (gate: PremiumGate): boolean => {
       const result = checkGate(gate, {
         profile,
-        petCount: pets.length,
+        petCount: activePetCount,
         documentCount: documents.length,
         ocrScansUsed: profile?.freeOcrScansUsed ?? 0,
       });
@@ -23,7 +27,7 @@ export function useGate() {
       }
       return true;
     },
-    [profile, pets.length, documents.length],
+    [profile, activePetCount, documents.length],
   );
 
   return {

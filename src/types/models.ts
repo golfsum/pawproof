@@ -113,6 +113,13 @@ export interface Pet {
   behaviorNotes?: string;
   boardingInstructions?: string;
   favoriteThings?: string;
+  /**
+   * Set true when a former-Plus user drops to free with more than the free
+   * limit of pets and parks this pet as read-only (data preserved, but no new
+   * logs/reminders) until they re-subscribe or remove a pet. Undefined/false
+   * means active. Never deletes data — App Store-friendly downgrade handling.
+   */
+  inactive?: boolean;
   createdAt: string;
   updatedAt: string;
 }
