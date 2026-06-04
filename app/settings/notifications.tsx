@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Alert, AppState, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { useAuth } from '@/hooks/AuthProvider';
 import { updateNotificationPrefs } from '@/lib/firestore';
+import {
+  getNotificationPermission,
+  requestNotificationPermission,
+  type NotifPermissionStatus,
+} from '@/lib/notifications';
 import { colors, fonts, radius, spacing, typography } from '@/theme';
 
 // Notification preferences. v1 covers the two settings users ask for
@@ -30,6 +35,47 @@ export default function NotificationPrefsScreen() {
   const [groupMultiPet, setGroupMultiPet] = useState(initialGroup);
   const [vaccineWarnDays, setVaccineWarnDays] = useState<14 | 30 | 60 | 90>(initialWindow);
   const [saving, setSaving] = useState(false);
+
+  // System notification permission. Re-checked when the app returns to the
+  // foreground so flipping the iOS toggle and coming back updates the card.
+  const [permStatus, setPermStatus] = useState<NotifPermissionStatus>('undetermined');
+  const [requesting, setRequesting] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const refresh = () => { getNotificationPermission().then(s => { if (mounted) setPermStatus(s); }); };
+    refresh();
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'active') refresh();
+    });
+    return () => { mounted = false; sub.remove(); };
+  }, []);
+
+  const handleEnable = async () => {
+    if (permStatus === 'denied') {
+      // Already asked and denied — iOS won't show the prompt again, so the
+      // only path is the system Settings page (the app now appears there).
+      Linking.openSettings();
+      return;
+    }
+    setRequesting(true);
+    try {
+      const result = await requestNotificationPermission();
+      setPermStatus(result);
+      if (result === 'denied') {
+        Alert.alert(
+          'Notifications are off',
+          'You can turn them on anytime in iOS Settings → PawProof → Notifications.',
+          [
+            { text: 'Not now', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
+          ],
+        );
+      }
+    } finally {
+      setRequesting(false);
+    }
+  };
 
   const persist = async (next: { groupMultiPet?: boolean; vaccineWarnDays?: 14 | 30 | 60 | 90 }) => {
     if (!user) return;
@@ -59,8 +105,38 @@ export default function NotificationPrefsScreen() {
         <Text style={typography.h1}>Notifications</Text>
         <Text style={styles.intro}>
           Control how PawProof reminds you about care, vaccines, and shared
-          tasks. iOS-level permission lives in Settings → Notifications.
+          tasks.
         </Text>
+
+        {/* System permission status + in-app enable. */}
+        {permStatus === 'granted' ? (
+          <View style={[styles.permCard, styles.permOk]}>
+            <Ionicons name="checkmark-circle" size={20} color="#1E6C80" />
+            <Text style={styles.permOkText}>Notifications are on. You&apos;ll get reminders for care and vaccines.</Text>
+          </View>
+        ) : (
+          <View style={[styles.permCard, styles.permWarn]}>
+            <Ionicons name="notifications-off-outline" size={20} color="#92400e" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.permWarnTitle}>Notifications are off</Text>
+              <Text style={styles.permWarnBody}>
+                {permStatus === 'denied'
+                  ? 'Turn them on in iOS Settings so PawProof can remind you about feedings, meds, and vaccine renewals.'
+                  : 'Enable notifications so PawProof can remind you about feedings, meds, and vaccine renewals.'}
+              </Text>
+              <Pressable
+                onPress={handleEnable}
+                disabled={requesting}
+                style={({ pressed }) => [styles.permBtn, pressed && { opacity: 0.85 }]}
+              >
+                <Text style={styles.permBtnText}>
+                  {requesting ? 'Requesting…' : permStatus === 'denied' ? 'Open iOS Settings' : 'Enable notifications'}
+                </Text>
+                <Ionicons name={permStatus === 'denied' ? 'open-outline' : 'notifications-outline'} size={15} color="#fff" />
+              </Pressable>
+            </View>
+          </View>
+        )}
 
         <View style={styles.card}>
           <View style={styles.toggleRow}>
@@ -112,8 +188,7 @@ export default function NotificationPrefsScreen() {
           <Ionicons name="information-circle-outline" size={16} color={colors.textMuted} />
           <View style={{ flex: 1 }}>
             <Text style={styles.iosCardText}>
-              Need to enable notifications on the system level, change sound,
-              or set focus filters? That happens in iOS Settings.
+              Sounds, banners, and focus filters are controlled in iOS Settings.
             </Text>
             <Pressable
               onPress={() => Linking.openSettings()}
@@ -133,6 +208,32 @@ export default function NotificationPrefsScreen() {
 const styles = StyleSheet.create({
   scroll: { padding: spacing.base, paddingBottom: spacing['2xl'], gap: spacing.sm },
   intro: { fontSize: 14, color: colors.textMuted, lineHeight: 20, marginTop: 4, marginBottom: spacing.md },
+
+  permCard: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'flex-start',
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    marginBottom: spacing.sm,
+  },
+  permOk: { backgroundColor: colors.primarySoft },
+  permOkText: { flex: 1, fontSize: 13, color: '#1E6C80', lineHeight: 18 },
+  permWarn: { backgroundColor: colors.warningSoft },
+  permWarnTitle: { fontSize: 15, fontFamily: fonts.body.semibold, color: '#92400e' },
+  permWarnBody: { fontSize: 13, color: '#92400e', lineHeight: 18, marginTop: 2 },
+  permBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 9,
+    borderRadius: radius.pill,
+  },
+  permBtnText: { color: '#fff', fontFamily: fonts.body.semibold, fontSize: 13 },
 
   card: {
     backgroundColor: colors.card,

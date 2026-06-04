@@ -43,6 +43,38 @@ export async function ensureNotificationPermission(): Promise<boolean> {
   return req.granted;
 }
 
+// Live permission status for the Settings UI. 'granted' | 'denied' |
+// 'undetermined' — undetermined means we've never asked, so we can still show
+// the native prompt (rather than dead-ending the user in iOS Settings, where
+// the app won't even appear until it has requested once).
+export type NotifPermissionStatus = 'granted' | 'denied' | 'undetermined';
+
+export async function getNotificationPermission(): Promise<NotifPermissionStatus> {
+  if (!Device.isDevice) return 'denied';
+  const s = await Notifications.getPermissionsAsync();
+  if (s.granted || s.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL) {
+    return 'granted';
+  }
+  // canAskAgain === true with not-granted means the prompt hasn't been shown
+  // (or is still allowed). Treat that as 'undetermined' so the UI offers the
+  // in-app prompt; a hard denial (canAskAgain false) routes to iOS Settings.
+  return s.canAskAgain ? 'undetermined' : 'denied';
+}
+
+// Explicitly request permission from a button tap. Unlike
+// ensureNotificationPermission, this has no once-per-session guard — the user
+// asked for it, so always surface the native prompt when allowed.
+export async function requestNotificationPermission(): Promise<NotifPermissionStatus> {
+  if (!Device.isDevice) return 'denied';
+  const req = await Notifications.requestPermissionsAsync({
+    ios: { allowAlert: true, allowBadge: true, allowSound: true },
+  });
+  if (req.granted || req.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL) {
+    return 'granted';
+  }
+  return req.canAskAgain ? 'undetermined' : 'denied';
+}
+
 export async function scheduleReminder(title: string, body: string, when: Date): Promise<string | null> {
   const ok = await ensureNotificationPermission();
   if (!ok) return null;
