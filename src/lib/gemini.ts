@@ -1,12 +1,43 @@
 import { uriToBase64 } from './storage';
+import { auth } from './firebase';
 
-// Model: gemini-2.5-flash. Uses the public Generative Language REST API so we
-// don't need a native SDK. The key must be available on-device as
-// EXPO_PUBLIC_GEMINI_API_KEY. For production we recommend proxying through a
-// Cloud Function so the key isn't shipped in the bundle.
+// OCR runs through OUR server proxy (web/src/app/api/ocr), which holds the
+// Gemini key and rate-limits per user. The key is NOT shipped in the app.
+// Base URL is overridable for local dev via EXPO_PUBLIC_API_BASE_URL.
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://pawproof.app';
+const OCR_ENDPOINT = `${API_BASE_URL}/api/ocr`;
 
-const MODEL = 'gemini-2.5-flash';
-const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+// Shared relay: sends prompt + image to our proxy with the user's Firebase ID
+// token and returns the model's raw text. Each extractor parses that text with
+// its own schema, exactly as before.
+async function runOcrViaProxy(prompt: string, imageUri: string): Promise<string> {
+  const user = auth.currentUser;
+  if (!user) throw new Error('You must be signed in to scan documents.');
+  const idToken = await user.getIdToken();
+  const dataBase64 = await uriToBase64(imageUri);
+  const mimeType = inferMimeType(imageUri);
+
+  const res = await fetch(OCR_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+    body: JSON.stringify({ prompt, mimeType, dataBase64 }),
+  });
+
+  if (!res.ok) {
+    let msg = `Scan failed (${res.status}).`;
+    try {
+      const body = await res.json();
+      if (body?.error) msg = body.error;
+    } catch {
+      // non-JSON error; keep the status message
+    }
+    throw new Error(msg);
+  }
+  const body = await res.json();
+  const text: string | undefined = body?.text;
+  if (!text) throw new Error('Scan returned no text. Try a clearer photo.');
+  return text;
+}
 
 export interface OcrExtractedFields {
   petName: string | null;
@@ -45,51 +76,7 @@ Rules:
 - Output JSON ONLY.`;
 
 export async function extractVaccineInfo(imageUri: string): Promise<OcrResult> {
-  const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error('Missing EXPO_PUBLIC_GEMINI_API_KEY. Add it to your .env file.');
-  }
-
-  const base64 = await uriToBase64(imageUri);
-  const mimeType = inferMimeType(imageUri);
-
-  const body = {
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          { text: OCR_PROMPT },
-          {
-            inlineData: {
-              mimeType,
-              data: base64,
-            },
-          },
-        ],
-      },
-    ],
-    generationConfig: {
-      temperature: 0.1,
-      responseMimeType: 'application/json',
-    },
-  };
-
-  const res = await fetch(`${ENDPOINT}?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(`Gemini OCR failed (${res.status}): ${errText.slice(0, 300)}`);
-  }
-
-  const json = await res.json();
-  const text: string | undefined = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) {
-    throw new Error('Gemini returned no text. Try a clearer photo.');
-  }
+  const text = await runOcrViaProxy(OCR_PROMPT, imageUri);
 
   let parsed: OcrResult;
   try {
@@ -266,41 +253,7 @@ Output:
 - Output JSON ONLY.`;
 
 export async function extractDocumentInfo(imageUri: string): Promise<DocumentOcrResult> {
-  const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error('Missing EXPO_PUBLIC_GEMINI_API_KEY. Add it to your .env file.');
-  }
-
-  const base64 = await uriToBase64(imageUri);
-  const mimeType = inferMimeType(imageUri);
-
-  const body = {
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          { text: UNIVERSAL_PROMPT },
-          { inlineData: { mimeType, data: base64 } },
-        ],
-      },
-    ],
-    generationConfig: { temperature: 0.1, responseMimeType: 'application/json' },
-  };
-
-  const res = await fetch(`${ENDPOINT}?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(`Gemini OCR failed (${res.status}): ${errText.slice(0, 300)}`);
-  }
-
-  const json = await res.json();
-  const text: string | undefined = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error('Gemini returned no text. Try a clearer photo.');
+  const text = await runOcrViaProxy(UNIVERSAL_PROMPT, imageUri);
 
   let parsed: DocumentOcrResult;
   try {
@@ -391,44 +344,7 @@ Rules:
 - Output JSON ONLY.`;
 
 export async function extractVetInvoiceInfo(imageUri: string): Promise<InvoiceOcrResult> {
-  const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error('Missing EXPO_PUBLIC_GEMINI_API_KEY. Add it to your .env file.');
-  }
-
-  const base64 = await uriToBase64(imageUri);
-  const mimeType = inferMimeType(imageUri);
-
-  const body = {
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          { text: INVOICE_PROMPT },
-          { inlineData: { mimeType, data: base64 } },
-        ],
-      },
-    ],
-    generationConfig: {
-      temperature: 0.1,
-      responseMimeType: 'application/json',
-    },
-  };
-
-  const res = await fetch(`${ENDPOINT}?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(`Gemini OCR failed (${res.status}): ${errText.slice(0, 300)}`);
-  }
-
-  const json = await res.json();
-  const text: string | undefined = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error('Gemini returned no text. Try a clearer photo.');
+  const text = await runOcrViaProxy(INVOICE_PROMPT, imageUri);
 
   let parsed: InvoiceOcrResult;
   try {
@@ -507,44 +423,7 @@ Rules:
 - Output JSON ONLY.`;
 
 export async function extractReceiptInfo(imageUri: string): Promise<ReceiptOcrResult> {
-  const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error('Missing EXPO_PUBLIC_GEMINI_API_KEY. Add it to your .env file.');
-  }
-
-  const base64 = await uriToBase64(imageUri);
-  const mimeType = inferMimeType(imageUri);
-
-  const body = {
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          { text: RECEIPT_PROMPT },
-          { inlineData: { mimeType, data: base64 } },
-        ],
-      },
-    ],
-    generationConfig: {
-      temperature: 0.1,
-      responseMimeType: 'application/json',
-    },
-  };
-
-  const res = await fetch(`${ENDPOINT}?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(`Gemini OCR failed (${res.status}): ${errText.slice(0, 300)}`);
-  }
-
-  const json = await res.json();
-  const text: string | undefined = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error('Gemini returned no text. Try a clearer photo.');
+  const text = await runOcrViaProxy(RECEIPT_PROMPT, imageUri);
 
   let parsed: ReceiptOcrResult;
   try {
