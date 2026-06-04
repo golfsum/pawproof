@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import type { PurchasesPackage } from 'react-native-purchases';
@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/AuthProvider';
 import { DEFAULT_PLAN, GATE_COPY, PAYWALL_COPY, PLANS, type Plan, type PlanId, type PremiumGate } from '@/lib/premium';
 import {
   isPurchasesConfigured,
+  getActivePlanProductId,
   getPackages,
   purchasePackage,
   restorePurchases,
@@ -32,9 +33,22 @@ export default function PaywallScreen() {
 
   const plan = PLANS[selected];
 
+  // The plan the user is already subscribed to (if any), so we can show
+  // "Current plan" and frame the others as a switch rather than a new buy.
+  const [currentPlanId, setCurrentPlanId] = useState<PlanId | null>(null);
+  const isSubscribed = currentPlanId != null;
+
   useEffect(() => {
     if (!billingReady) return;
     getPackages().then(setPackages).catch(() => {});
+    getActivePlanProductId().then(pid => {
+      if (!pid) return;
+      const match = (Object.values(PLANS) as Plan[]).find(p => p.productId === pid);
+      if (match) {
+        setCurrentPlanId(match.id);
+        setSelected(match.id); // highlight their current plan by default
+      }
+    }).catch(() => {});
   }, [billingReady]);
 
   // Per-gate headline override. When the paywall is fired by a specific
@@ -99,10 +113,14 @@ export default function PaywallScreen() {
     }
   };
 
-  // CTA changes based on plan: trial framing for subscriptions, direct
-  // purchase for lifetime. Apple's trial UX kicks in automatically when
-  // the product has an introductory offer configured.
-  const primaryCta = plan.trialDays ? PAYWALL_COPY.trialCta : PAYWALL_COPY.buyCta;
+  // CTA adapts: already on this plan → disabled "Current plan"; subscribed to a
+  // different one → "Switch to X"; otherwise trial/buy framing.
+  const onSelectedPlan = currentPlanId === selected;
+  const primaryCta = onSelectedPlan
+    ? 'Your current plan'
+    : isSubscribed
+      ? `Switch to ${plan.label}`
+      : plan.trialDays ? PAYWALL_COPY.trialCta : PAYWALL_COPY.buyCta;
 
   return (
     <Screen edges={['top', 'bottom']}>
@@ -114,13 +132,24 @@ export default function PaywallScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.iconWrap}>
-          <Ionicons name="scan-outline" size={36} color={colors.primary} />
+        <View style={styles.logoWrap}>
+          <Image source={require('../assets/icon.png')} style={styles.logo} resizeMode="contain" />
         </View>
 
         <Text style={[typography.display, { textAlign: 'center' }]}>{PAYWALL_COPY.title}</Text>
-        <Text style={styles.tagline}>{headline}</Text>
-        <Text style={styles.pitch}>{pitch}</Text>
+        {isSubscribed ? (
+          <View style={styles.subscribedPill}>
+            <Ionicons name="checkmark-circle" size={15} color="#1E6C80" />
+            <Text style={styles.subscribedText}>
+              You&apos;re subscribed · {currentPlanId ? PLANS[currentPlanId].label : 'Plus'}
+            </Text>
+          </View>
+        ) : (
+          <Text style={styles.tagline}>{headline}</Text>
+        )}
+        <Text style={styles.pitch}>
+          {isSubscribed ? 'Manage or switch your billing period below.' : pitch}
+        </Text>
 
         <View style={styles.features}>
           {PAYWALL_COPY.features.map(f => (
@@ -137,17 +166,20 @@ export default function PaywallScreen() {
           <PlanCard
             plan={PLANS.yearly}
             selected={selected === 'yearly'}
+            isCurrent={currentPlanId === 'yearly'}
             highlighted
             onPress={() => setSelected('yearly')}
           />
           <PlanCard
             plan={PLANS.monthly}
             selected={selected === 'monthly'}
+            isCurrent={currentPlanId === 'monthly'}
             onPress={() => setSelected('monthly')}
           />
           <PlanCard
             plan={PLANS.lifetime}
             selected={selected === 'lifetime'}
+            isCurrent={currentPlanId === 'lifetime'}
             onPress={() => setSelected('lifetime')}
           />
         </View>
@@ -156,9 +188,10 @@ export default function PaywallScreen() {
           title={primaryCta}
           onPress={handleStart}
           loading={busy}
-          icon={plan.trialDays ? 'sparkles-outline' : 'cart-outline'}
+          disabled={onSelectedPlan}
+          icon={onSelectedPlan ? 'checkmark-outline' : plan.trialDays ? 'sparkles-outline' : 'cart-outline'}
         />
-        <Text style={styles.ctaSubline}>{plan.ctaSubline}</Text>
+        {!onSelectedPlan ? <Text style={styles.ctaSubline}>{plan.ctaSubline}</Text> : null}
 
         <Pressable onPress={handleRestore} hitSlop={10} disabled={restoring} style={styles.maybeLaterBtn}>
           <Text style={styles.maybeLater}>{restoring ? 'Restoring…' : 'Restore purchases'}</Text>
@@ -181,11 +214,13 @@ function PlanCard({
   plan,
   selected,
   highlighted,
+  isCurrent,
   onPress,
 }: {
   plan: Plan;
   selected: boolean;
   highlighted?: boolean;
+  isCurrent?: boolean;
   onPress: () => void;
 }) {
   return (
@@ -198,7 +233,11 @@ function PlanCard({
         pressed && { opacity: 0.92 },
       ]}
     >
-      {plan.badge ? (
+      {isCurrent ? (
+        <View style={[styles.planBadge, styles.planBadgeCurrent]}>
+          <Text style={[styles.planBadgeText, { color: '#fff' }]}>Current plan</Text>
+        </View>
+      ) : plan.badge ? (
         <View style={[styles.planBadge, highlighted ? styles.planBadgePrimary : styles.planBadgeNeutral]}>
           <Text style={[styles.planBadgeText, highlighted ? { color: '#fff' } : { color: colors.primaryDark }]}>
             {plan.badge}
@@ -228,13 +267,25 @@ const styles = StyleSheet.create({
   topBar: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: spacing.md, paddingTop: spacing.sm },
   close: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.cardSubtle, alignItems: 'center', justifyContent: 'center' },
   scroll: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing['3xl'] },
-  iconWrap: {
+  logoWrap: {
     alignSelf: 'center',
-    width: 76, height: 76, borderRadius: 24,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center', justifyContent: 'center',
+    width: 84, height: 84, borderRadius: 22,
+    overflow: 'hidden',
     marginVertical: spacing.sm,
   },
+  logo: { width: '100%', height: '100%' },
+  subscribedPill: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    marginTop: 6,
+  },
+  subscribedText: { fontSize: 13, fontFamily: fonts.body.semibold, color: '#1E6C80' },
   tagline: {
     fontSize: 18,
     fontFamily: fonts.display.bold,
@@ -300,6 +351,7 @@ const styles = StyleSheet.create({
   },
   planBadgePrimary: { backgroundColor: colors.primary },
   planBadgeNeutral: { backgroundColor: '#fff', borderWidth: 1, borderColor: colors.primary + '55' },
+  planBadgeCurrent: { backgroundColor: '#1E6C80' },
   planBadgeText: { fontSize: 10, fontFamily: fonts.body.semibold, letterSpacing: 0.6, textTransform: 'uppercase' },
 
   planRadio: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },

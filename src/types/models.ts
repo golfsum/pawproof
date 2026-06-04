@@ -76,6 +76,9 @@ export interface UserProfile {
    * the locale's metric/imperial bias on first sign-in.
    */
   distanceUnit?: 'mi' | 'km';
+  /** Date display order. 'mdy' = "Jun 4, 2026" (US), 'dmy' = "4 Jun 2026"
+   *  (European / most of the world). Defaults from device locale. */
+  dateFormat?: 'mdy' | 'dmy';
   createdAt: string;
 }
 

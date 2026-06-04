@@ -18,6 +18,8 @@ import {
   addPremiumListener,
   isPurchasesConfigured,
 } from '@/lib/purchases';
+import { setDateOrder } from '@/utils/dates';
+import { resolveDateFormat } from '@/utils/units';
 import type { UserProfile } from '@/types/models';
 
 interface AuthContextValue {
@@ -79,6 +81,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsub = watchUserProfile(user.uid, setRawProfile);
     return unsub;
   }, [user?.uid]);
+
+  // Apply the user's date-order preference globally so every fmtDate/fmtDay
+  // reflects mdy vs dmy without threading the pref through call sites.
+  useEffect(() => {
+    setDateOrder(resolveDateFormat(rawProfile?.dateFormat));
+  }, [rawProfile?.dateFormat]);
 
   // Sync premium state from RevenueCat: initial fetch + live listener for
   // purchases/renewals/expiries. Mirror the result into Firestore so the web

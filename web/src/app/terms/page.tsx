@@ -75,6 +75,17 @@ export default function TermsPage() {
             does not include a trial.
           </p>
           <p>
+            <strong>What &quot;Lifetime&quot; means.</strong> The Lifetime
+            purchase grants access to PawProof Plus features for the
+            lifetime of the PawProof app and service &mdash; not the
+            lifetime of the purchaser. It is a one-time payment with no
+            recurring charge, but it does not guarantee the app will be
+            available, supported, or operated indefinitely. If PawProof is
+            discontinued, sunset, or the service otherwise ends, Lifetime
+            access ends with it, and no refund is owed for a Lifetime
+            purchase made before that time.
+          </p>
+          <p>
             <strong>Refunds.</strong> Refunds are handled by Apple /
             Google per their refund policies; we can&apos;t refund their
             charges. If you believe you were billed in error, contact

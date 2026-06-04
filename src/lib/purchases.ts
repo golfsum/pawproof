@@ -51,6 +51,20 @@ export function hasPlus(info: CustomerInfo | null | undefined): boolean {
   return info.entitlements.active[PLUS_ENTITLEMENT] != null;
 }
 
+// The productIdentifier backing the active Plus entitlement (e.g.
+// 'plus_yearly_3999'), or null if not subscribed / not configured. Lets the
+// paywall show "You're on Yearly" and offer the other billing periods.
+export async function getActivePlanProductId(): Promise<string | null> {
+  if (!configured) return null;
+  try {
+    const info = await Purchases.getCustomerInfo();
+    const ent = info.entitlements.active[PLUS_ENTITLEMENT];
+    return ent?.productIdentifier ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Current premium state from RevenueCat. Returns false if not configured. */
 export async function fetchIsPremium(): Promise<boolean> {
   if (!configured) return false;

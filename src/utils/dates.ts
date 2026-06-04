@@ -15,6 +15,30 @@ export function toDate(value: string | Date | null | undefined): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+// Date ordering preference. 'mdy' → "Jun 4, 2026" (US). 'dmy' → "4 Jun 2026"
+// (European / most of the world). Set once from the user's profile at app
+// start via setDateOrder(); the formatters below read it so every date in the
+// app follows the user's convention without threading a prop everywhere.
+export type DateOrder = 'mdy' | 'dmy';
+let dateOrder: DateOrder = 'mdy';
+
+export function setDateOrder(order: DateOrder): void {
+  dateOrder = order;
+}
+export function getDateOrder(): DateOrder {
+  return dateOrder;
+}
+
+// date-fns patterns per ordering. `withYear` toggles the year on/off.
+function datePattern(withYear: boolean): string {
+  if (dateOrder === 'dmy') return withYear ? 'd MMM yyyy' : 'd MMM';
+  return withYear ? 'MMM d, yyyy' : 'MMM d';
+}
+function dayPattern(withYear: boolean): string {
+  if (dateOrder === 'dmy') return withYear ? 'EEE, d MMM yyyy' : 'EEE, d MMM';
+  return withYear ? 'EEE, MMM d, yyyy' : 'EEE, MMM d';
+}
+
 export function fmtRelative(value: string | Date): string {
   const d = toDate(value);
   if (!d) return '';
@@ -24,7 +48,9 @@ export function fmtRelative(value: string | Date): string {
   const sameYear = d.getFullYear() === new Date().getFullYear();
   // For future-year dates (e.g. an annual vaccine reminder a year out), drop
   // the time and surface the year so "Mar 14" doesn't read ambiguously.
-  return format(d, sameYear ? 'MMM d, p' : 'MMM d, yyyy');
+  return sameYear
+    ? `${format(d, datePattern(false))}, ${format(d, 'p')}`
+    : format(d, datePattern(true));
 }
 
 export function fmtDay(value: string | Date): string {
@@ -34,13 +60,13 @@ export function fmtDay(value: string | Date): string {
   if (isToday(d)) return 'Today';
   if (isTomorrow(d)) return 'Tomorrow';
   if (isYesterday(d)) return 'Yesterday';
-  return format(d, sameYear ? 'EEE, MMM d' : 'EEE, MMM d, yyyy');
+  return format(d, dayPattern(!sameYear));
 }
 
 export function fmtDate(value: string | Date | null | undefined): string {
   const d = toDate(value ?? null);
   if (!d) return '-';
-  return format(d, 'MMM d, yyyy');
+  return format(d, datePattern(true));
 }
 
 export function fmtTime(value: string | Date | null | undefined): string {

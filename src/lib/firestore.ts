@@ -150,6 +150,14 @@ export async function setDistanceUnit(
   await updateDoc(doc(usersCol(), uid), { distanceUnit: unit });
 }
 
+// Update the user's preferred date order ('mdy' US / 'dmy' European).
+export async function setDateFormat(
+  uid: string,
+  fmt: 'mdy' | 'dmy',
+): Promise<void> {
+  await updateDoc(doc(usersCol(), uid), { dateFormat: fmt });
+}
+
 // One-shot backup of everything under /users/{uid}. Used by the
 // data-export flow to produce a single JSON file the user can save
 // or share. Reads each subcollection in parallel; doesn't follow

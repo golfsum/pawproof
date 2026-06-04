@@ -69,6 +69,21 @@ export function resolveDistanceUnit(stored: DistanceUnit | null | undefined): Di
   return stored ?? defaultDistanceUnitForLocale();
 }
 
+// Date order ('mdy' US, 'dmy' European). US is the main mdy locale; most of
+// the world is dmy. Used as the default until the user picks in Settings.
+export type DateFormatPref = 'mdy' | 'dmy';
+export function defaultDateFormatForLocale(): DateFormatPref {
+  try {
+    const locale = Intl.DateTimeFormat().resolvedOptions().locale ?? 'en-US';
+    return /^en-us$/i.test(locale) ? 'mdy' : 'dmy';
+  } catch {
+    return 'mdy';
+  }
+}
+export function resolveDateFormat(stored: DateFormatPref | null | undefined): DateFormatPref {
+  return stored ?? defaultDateFormatForLocale();
+}
+
 export function lbToKg(lb: number): number {
   return lb * KG_PER_LB;
 }
