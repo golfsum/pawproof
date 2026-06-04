@@ -12,6 +12,12 @@ import {
   signInWithGoogle as nativeSignInWithGoogle,
   signInWithApple as nativeSignInWithApple,
 } from '@/lib/socialAuth';
+import {
+  configurePurchases,
+  fetchIsPremium,
+  addPremiumListener,
+  isPurchasesConfigured,
+} from '@/lib/purchases';
 import type { UserProfile } from '@/types/models';
 
 interface AuthContextValue {
@@ -30,8 +36,18 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [rawProfile, setRawProfile] = useState<UserProfile | null>(null);
   const [initializing, setInitializing] = useState(true);
+  // Premium from RevenueCat's "plus" entitlement (null = unknown/not yet
+  // configured, so we fall back to the Firestore flag below).
+  const [entitlementPremium, setEntitlementPremium] = useState<boolean | null>(null);
+
+  // Effective profile: RevenueCat entitlement is the source of truth for
+  // isPremium when billing is configured; otherwise use the Firestore flag
+  // (keeps the dev toggle + web admin grants working before billing exists).
+  const profile: UserProfile | null = rawProfile
+    ? { ...rawProfile, isPremium: entitlementPremium ?? rawProfile.isPremium }
+    : rawProfile;
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => {
@@ -45,8 +61,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ensureUserProfile(u.uid, u.email).catch(err => {
           console.error('[auth] ensureUserProfile failed', err);
         });
+        // Tie RevenueCat to this Firebase user so purchases follow identity.
+        configurePurchases(u.uid);
       } else {
-        setProfile(null);
+        setRawProfile(null);
+        setEntitlementPremium(null);
       }
     });
     return unsub;
@@ -54,11 +73,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!user) {
-      setProfile(null);
+      setRawProfile(null);
       return;
     }
-    const unsub = watchUserProfile(user.uid, setProfile);
+    const unsub = watchUserProfile(user.uid, setRawProfile);
     return unsub;
+  }, [user?.uid]);
+
+  // Sync premium state from RevenueCat: initial fetch + live listener for
+  // purchases/renewals/expiries. Mirror the result into Firestore so the web
+  // dashboard and the (future) downgrade trigger see the same truth.
+  useEffect(() => {
+    if (!user || !isPurchasesConfigured()) return;
+    let mounted = true;
+    fetchIsPremium().then(p => {
+      if (mounted) setEntitlementPremium(p);
+    });
+    const remove = addPremiumListener(p => {
+      if (!mounted) return;
+      setEntitlementPremium(p);
+      // Best-effort mirror; ignore failures (entitlement stays source of truth).
+      fsSetPremium(user.uid, p).catch(() => {});
+    });
+    return () => { mounted = false; remove(); };
   }, [user?.uid]);
 
   const value = useMemo<AuthContextValue>(

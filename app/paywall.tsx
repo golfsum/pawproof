@@ -1,11 +1,18 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import type { PurchasesPackage } from 'react-native-purchases';
 import { Screen } from '@/components/Screen';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { useAuth } from '@/hooks/AuthProvider';
 import { DEFAULT_PLAN, GATE_COPY, PAYWALL_COPY, PLANS, type Plan, type PlanId, type PremiumGate } from '@/lib/premium';
+import {
+  isPurchasesConfigured,
+  getPackages,
+  purchasePackage,
+  restorePurchases,
+} from '@/lib/purchases';
 import { colors, fonts, radius, spacing, typography } from '@/theme';
 
 export default function PaywallScreen() {
@@ -13,12 +20,22 @@ export default function PaywallScreen() {
   const params = useLocalSearchParams<{ gate?: string; reason?: string }>();
   const { togglePremium } = useAuth();
   const [busy, setBusy] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  // Live RevenueCat packages keyed by productId. Empty until loaded (or if
+  // billing isn't configured yet, in which case we degrade gracefully).
+  const [packages, setPackages] = useState<Record<string, PurchasesPackage>>({});
+  const billingReady = isPurchasesConfigured();
   // Yearly highlighted by default. We list it first in the UI so the
   // Best Value framing is the user's anchor — monthly and lifetime feel
   // like alternatives instead of the primary choice.
   const [selected, setSelected] = useState<PlanId>(DEFAULT_PLAN);
 
   const plan = PLANS[selected];
+
+  useEffect(() => {
+    if (!billingReady) return;
+    getPackages().then(setPackages).catch(() => {});
+  }, [billingReady]);
 
   // Per-gate headline override. When the paywall is fired by a specific
   // gate (Scan, Add pet, Upload, PDF, Advanced reminders), the top of
@@ -30,16 +47,55 @@ export default function PaywallScreen() {
   const pitch = gateCopy?.sub ?? PAYWALL_COPY.pitch;
 
   const handleStart = async () => {
+    // Dev / pre-billing fallback: if RevenueCat isn't configured (no key, or
+    // simulator), use the manual flag so the flow is still testable.
+    if (!billingReady) {
+      setBusy(true);
+      try {
+        await togglePremium(true);
+        Alert.alert('Plus unlocked (dev mode)', 'Real purchases activate once billing is configured on a device build.');
+        router.back();
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
+    const pkg = packages[plan.productId];
+    if (!pkg) {
+      Alert.alert('Unavailable', 'This plan isn\'t available right now. Please try again later.');
+      return;
+    }
     setBusy(true);
     try {
-      await togglePremium(true);
-      Alert.alert(
-        'You\'re in!',
-        `PawProof Plus features are now unlocked. Replace this stub with RevenueCat or StoreKit before launching (selected product: ${plan.productId}).`,
-      );
-      router.back();
+      const res = await purchasePackage(pkg);
+      if (res.outcome === 'purchased') {
+        // Entitlement (and isPremium) updates via the AuthProvider listener.
+        router.back();
+      } else if (res.outcome === 'error') {
+        Alert.alert('Purchase failed', res.message ?? 'Please try again.');
+      }
+      // 'cancelled' → silently stay on the paywall.
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!billingReady) {
+      Alert.alert('Restore', 'Purchases restore automatically on a device build signed into your Apple ID.');
+      return;
+    }
+    setRestoring(true);
+    try {
+      const ok = await restorePurchases();
+      Alert.alert(
+        ok ? 'Restored' : 'Nothing to restore',
+        ok ? 'Your PawProof Plus access is active again.' : 'No previous PawProof Plus purchase was found for this Apple ID.',
+      );
+      if (ok) router.back();
+    } finally {
+      setRestoring(false);
     }
   };
 
@@ -104,14 +160,17 @@ export default function PaywallScreen() {
         />
         <Text style={styles.ctaSubline}>{plan.ctaSubline}</Text>
 
+        <Pressable onPress={handleRestore} hitSlop={10} disabled={restoring} style={styles.maybeLaterBtn}>
+          <Text style={styles.maybeLater}>{restoring ? 'Restoring…' : 'Restore purchases'}</Text>
+        </Pressable>
+
         <Pressable onPress={() => router.back()} hitSlop={10} style={styles.maybeLaterBtn}>
           <Text style={styles.maybeLater}>{PAYWALL_COPY.secondaryCta}</Text>
         </Pressable>
 
         <Text style={styles.disclaimer}>
-          Subscriptions auto-renew until cancelled. Manage in your Apple ID
-          settings. Stub paywall, wire to RevenueCat / StoreKit before
-          launch.
+          Subscriptions auto-renew until cancelled. Manage or cancel anytime in
+          your Apple ID settings.
         </Text>
       </ScrollView>
     </Screen>
