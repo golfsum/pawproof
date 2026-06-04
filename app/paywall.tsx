@@ -61,16 +61,21 @@ export default function PaywallScreen() {
   const pitch = gateCopy?.sub ?? PAYWALL_COPY.pitch;
 
   const handleStart = async () => {
-    // Dev / pre-billing fallback: if RevenueCat isn't configured (no key, or
-    // simulator), use the manual flag so the flow is still testable.
     if (!billingReady) {
-      setBusy(true);
-      try {
-        await togglePremium(true);
-        Alert.alert('Plus unlocked (dev mode)', 'Real purchases activate once billing is configured on a device build.');
-        router.back();
-      } finally {
-        setBusy(false);
+      // In DEV builds, fall back to the manual flag so the flow is testable
+      // before RevenueCat is configured. In production this NEVER grants Plus
+      // for free — it just reports that purchases aren't available yet.
+      if (__DEV__) {
+        setBusy(true);
+        try {
+          await togglePremium(true);
+          Alert.alert('Plus unlocked (dev mode)', 'Dev-only. Real purchases activate once billing is configured on a device build.');
+          router.back();
+        } finally {
+          setBusy(false);
+        }
+      } else {
+        Alert.alert('Purchases unavailable', 'In-app purchases aren\'t available right now. Please try again later.');
       }
       return;
     }
