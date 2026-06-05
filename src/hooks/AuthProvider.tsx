@@ -64,7 +64,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error('[auth] ensureUserProfile failed', err);
         });
         // Tie RevenueCat to this Firebase user so purchases follow identity.
-        configurePurchases(u.uid);
+        // Never let a billing init problem break auth/app startup.
+        try { configurePurchases(u.uid); } catch (e) { console.warn('[auth] configurePurchases threw', e); }
       } else {
         setRawProfile(null);
         setEntitlementPremium(null);

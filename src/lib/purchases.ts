@@ -37,16 +37,26 @@ export function configurePurchases(uid: string | null): void {
     return;
   }
   if (!IOS_KEY) {
-    console.log('[purchases] EXPO_PUBLIC_REVENUECAT_IOS_KEY not set — billing disabled.');
+    console.log('[purchases] RevenueCat key not set — billing disabled.');
     return;
   }
   if (Platform.OS !== 'ios') {
     // Android key/setup not configured yet; iOS-only for v1.
     return;
   }
-  if (__DEV__) Purchases.setLogLevel(LOG_LEVEL.DEBUG);
-  Purchases.configure({ apiKey: IOS_KEY, appUserID: uid ?? undefined });
-  configured = true;
+  // Wrap EVERYTHING: a malformed/wrong-type key (or any native init failure)
+  // can throw synchronously here. An unhandled throw on app start = launch
+  // crash. Billing is non-essential to running the app, so on any failure we
+  // log and leave `configured` false — the paywall falls back gracefully and
+  // the rest of the app works normally.
+  try {
+    if (__DEV__) Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+    Purchases.configure({ apiKey: IOS_KEY, appUserID: uid ?? undefined });
+    configured = true;
+  } catch (e) {
+    console.warn('[purchases] configure failed — billing disabled for this session:', e);
+    configured = false;
+  }
 }
 
 /** Whether a CustomerInfo grants the Plus entitlement. */
