@@ -89,6 +89,11 @@ export function QuickLogSheet({ visible, kind, initialPetId, onClose }: Props) {
   const [walkDistance, setWalkDistance] = useState<string>('');
   const [walkDistanceUnit, setWalkDistanceUnit] = useState<DistanceUnit>(defaultUnit);
   const [severity, setSeverity] = useState<SymptomSeverity | null>(null);
+  // Symptoms are multi-select: a pet can have several at once ("not eating"
+  // AND "vomiting"). We persist one journal entry per symptom (sharing the
+  // same severity/note/timestamp/pets) so each keeps a clean single subtype —
+  // which is what the vet report and insights aggregate on.
+  const [symptomSubtypes, setSymptomSubtypes] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -109,6 +114,7 @@ export function QuickLogSheet({ visible, kind, initialPetId, onClose }: Props) {
     setWalkDistance('');
     setWalkDistanceUnit(defaultUnit);
     setSeverity(null);
+    setSymptomSubtypes([]);
   }, [visible, kind, initialPetId, pets, defaultUnit]);
 
   const title = kind ? TITLES[kind] : '';
@@ -123,6 +129,12 @@ export function QuickLogSheet({ visible, kind, initialPetId, onClose }: Props) {
   };
   const toggleAll = () => {
     setSelectedPetIds(prev => (prev.length === pets.length ? [] : pets.map(p => p.id)));
+  };
+
+  const toggleSymptom = (s: string) => {
+    setSymptomSubtypes(prev =>
+      prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s],
+    );
   };
 
   // Convert the unit when the user toggles mi/km so they don't lose the
@@ -147,10 +159,10 @@ export function QuickLogSheet({ visible, kind, initialPetId, onClose }: Props) {
     if (!kind) return false;
     if (selectedPetIds.length === 0) return false;
     if (kind === 'medication' && !medName.trim()) return false;
-    if (kind === 'symptom' && !subtype) return false;
+    if (kind === 'symptom' && symptomSubtypes.length === 0) return false;
     if (kind === 'fed' && !subtype) return false;
     return true;
-  }, [selectedPetIds, kind, medName, subtype]);
+  }, [selectedPetIds, kind, medName, subtype, symptomSubtypes]);
 
   const petNamesForToast = (ids: string[]): string => {
     const names = ids
@@ -166,6 +178,42 @@ export function QuickLogSheet({ visible, kind, initialPetId, onClose }: Props) {
     if (!user || !kind || selectedPetIds.length === 0) return;
     setSaving(true);
     try {
+      // Multi-pet entries write a single doc with the full petIds array.
+      // The primary `petId` is the first selected pet so legacy readers
+      // (and queries that still hit `where('petId','==', ...)`) still
+      // surface the entry for at least one pet.
+      const primaryPetId = selectedPetIds[0];
+      const petIds = selectedPetIds.length > 1 ? selectedPetIds : undefined;
+
+      // Symptoms: one entry per selected symptom, all sharing the same
+      // severity/note/timestamp/pets. Keeps each entry's subtype clean so the
+      // vet report and insights aggregate per-symptom correctly.
+      if (kind === 'symptom') {
+        const ts = new Date().toISOString();
+        for (const name of symptomSubtypes) {
+          await createEntry(user.uid, {
+            petId: primaryPetId,
+            ...(petIds ? { petIds } : {}),
+            type: 'symptom',
+            title: `Symptom: ${name}`,
+            note: note.trim() || undefined,
+            timestamp: ts,
+            durationMin: null,
+            amount: null,
+            subtype: name,
+            severity,
+            photoUrl: null,
+            actorUid: user.uid,
+            actorName: user.displayName ?? null,
+          });
+        }
+        const namesLabel = petNamesForToast(selectedPetIds);
+        const n = symptomSubtypes.length;
+        setToast(`${n} symptom${n === 1 ? '' : 's'} logged for ${namesLabel}.`);
+        onClose();
+        return;
+      }
+
       const type = ENTRY_TYPE_BY_KIND[kind];
       let entryTitle = JOURNAL_META[type].label;
       let amount: string | null = null;
@@ -205,20 +253,11 @@ export function QuickLogSheet({ visible, kind, initialPetId, onClose }: Props) {
       } else if (kind === 'medication') {
         entryTitle = medName.trim();
         amount = medDose.trim() || null;
-      } else if (kind === 'symptom') {
-        entryTitle = subtype ? `Symptom: ${subtype}` : 'Symptom';
       } else if (kind === 'training') {
         entryTitle = subtype ? `Training: ${subtype}` : 'Training';
       } else if (kind === 'grooming') {
         entryTitle = subtype ? `Grooming: ${subtype}` : 'Grooming';
       }
-
-      // Multi-pet entries write a single doc with the full petIds array.
-      // The primary `petId` is the first selected pet so legacy readers
-      // (and queries that still hit `where('petId','==', ...)`) still
-      // surface the entry for at least one pet.
-      const primaryPetId = selectedPetIds[0];
-      const petIds = selectedPetIds.length > 1 ? selectedPetIds : undefined;
 
       await createEntry(user.uid, {
         petId: primaryPetId,
@@ -230,7 +269,7 @@ export function QuickLogSheet({ visible, kind, initialPetId, onClose }: Props) {
         durationMin,
         amount,
         subtype: entrySubtype,
-        severity: kind === 'symptom' ? severity : null,
+        severity: null,
         photoUrl: null,
         ...(kind === 'walk' && distanceMeters != null
           ? { distanceMeters, walkSource: 'manual' as const }
@@ -440,7 +479,20 @@ export function QuickLogSheet({ visible, kind, initialPetId, onClose }: Props) {
 
                 {kind === 'symptom' && (
                   <View style={{ gap: 12 }}>
-                    <ChipRow label="Symptom" options={SYMPTOM_TYPES} value={subtype} onChange={setSubtype} />
+                    <View style={{ gap: 8 }}>
+                      <Text style={styles.label}>Symptoms</Text>
+                      <View style={styles.chipRow}>
+                        {SYMPTOM_TYPES.map(s => (
+                          <Chip
+                            key={s}
+                            label={s}
+                            selected={symptomSubtypes.includes(s)}
+                            onPress={() => toggleSymptom(s)}
+                          />
+                        ))}
+                      </View>
+                      <Text style={styles.helperText}>Select all that apply.</Text>
+                    </View>
                     <View style={{ gap: 8 }}>
                       <Text style={styles.label}>Severity</Text>
                       <View style={styles.chipRow}>
