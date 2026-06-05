@@ -175,3 +175,20 @@ export async function restorePurchases(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Open the native iOS "Manage Subscriptions" sheet, where the user can switch
+ * plans or cancel. Apple requires cancellation to happen here (apps can't
+ * cancel directly). Returns false if it couldn't be opened so the caller can
+ * fall back to a deep link.
+ */
+export async function manageSubscriptions(): Promise<boolean> {
+  if (!configured) return false;
+  try {
+    await Purchases.showManageSubscriptions();
+    return true;
+  } catch (e) {
+    console.warn('[purchases] showManageSubscriptions failed:', e);
+    return false;
+  }
+}

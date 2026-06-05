@@ -57,7 +57,7 @@ export default function SettingsScreen() {
           title="PawProof Plus"
           subtitle={
             profile?.isPremium
-              ? "You're a Plus member."
+              ? 'Active · tap to manage or switch your plan'
               : 'Unlock Smart Scan, unlimited pets, PDFs, and caregiver sharing.'
           }
           onPress={() => router.push('/paywall')}

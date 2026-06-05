@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import type { PurchasesPackage } from 'react-native-purchases';
@@ -11,6 +11,7 @@ import {
   isPurchasesConfigured,
   getActivePackageId,
   getPackages,
+  manageSubscriptions,
   purchasePackage,
   restorePurchases,
 } from '@/lib/purchases';
@@ -90,13 +91,31 @@ export default function PaywallScreen() {
       const res = await purchasePackage(pkg);
       if (res.outcome === 'purchased') {
         // Entitlement (and isPremium) updates via the AuthProvider listener.
+        Alert.alert("You're all set! 🎉", 'Welcome to PawProof Plus — every feature is unlocked.');
         router.back();
       } else if (res.outcome === 'error') {
-        Alert.alert('Purchase failed', res.message ?? 'Please try again.');
+        // Friendly, non-technical wording with a retry. The raw SDK message
+        // is only useful to us, so we keep it out of the user's face.
+        Alert.alert(
+          "Couldn't complete your purchase",
+          "No charge was made. This can happen if the payment was declined or the connection dropped. You can try again, or check your Apple ID payment settings.",
+          [
+            { text: 'Not now', style: 'cancel' },
+            { text: 'Try again', onPress: () => { void handleStart(); } },
+          ],
+        );
       }
-      // 'cancelled' → silently stay on the paywall.
+      // 'cancelled' → user backed out; stay quietly on the paywall.
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleManage = async () => {
+    const ok = await manageSubscriptions();
+    if (!ok) {
+      // Fallback: deep-link straight to the iOS subscriptions page.
+      Linking.openURL('https://apps.apple.com/account/subscriptions').catch(() => {});
     }
   };
 
@@ -198,12 +217,18 @@ export default function PaywallScreen() {
         />
         {!onSelectedPlan ? <Text style={styles.ctaSubline}>{plan.ctaSubline}</Text> : null}
 
+        {isSubscribed ? (
+          <Pressable onPress={handleManage} hitSlop={10} style={styles.maybeLaterBtn}>
+            <Text style={styles.maybeLater}>Manage or cancel subscription</Text>
+          </Pressable>
+        ) : null}
+
         <Pressable onPress={handleRestore} hitSlop={10} disabled={restoring} style={styles.maybeLaterBtn}>
           <Text style={styles.maybeLater}>{restoring ? 'Restoring…' : 'Restore purchases'}</Text>
         </Pressable>
 
         <Pressable onPress={() => router.back()} hitSlop={10} style={styles.maybeLaterBtn}>
-          <Text style={styles.maybeLater}>{PAYWALL_COPY.secondaryCta}</Text>
+          <Text style={styles.maybeLater}>{isSubscribed ? 'Done' : PAYWALL_COPY.secondaryCta}</Text>
         </Pressable>
 
         <Text style={styles.disclaimer}>
