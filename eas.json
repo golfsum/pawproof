@@ -25,6 +25,8 @@
     }
   },
   "submit": {
+    "development": {},
+    "preview": {},
     "production": {}
   }
 }
