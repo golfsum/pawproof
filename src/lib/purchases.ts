@@ -102,15 +102,27 @@ export function addPremiumListener(cb: (isPremium: boolean) => void): () => void
 /** Fetch the current offering's purchasable packages, keyed by productId. */
 export async function getPackages(): Promise<Record<string, PurchasesPackage>> {
   if (!configured) return {};
-  const offerings = await Purchases.getOfferings();
-  const current = offerings.current;
-  const out: Record<string, PurchasesPackage> = {};
-  if (current) {
-    for (const pkg of current.availablePackages) {
-      out[pkg.product.identifier] = pkg;
+  try {
+    const offerings = await Purchases.getOfferings();
+    const current = offerings.current;
+    const out: Record<string, PurchasesPackage> = {};
+    if (current) {
+      for (const pkg of current.availablePackages) {
+        out[pkg.product.identifier] = pkg;
+      }
     }
+    // Diagnostics: surfaces exactly what RevenueCat returned so an empty
+    // offering / missing products / not-approved IAPs are easy to spot.
+    console.log('[purchases] offerings →', {
+      currentOffering: current?.identifier ?? '(none)',
+      productIds: Object.keys(out),
+      allOfferings: Object.keys(offerings.all ?? {}),
+    });
+    return out;
+  } catch (e) {
+    console.warn('[purchases] getOfferings failed:', e);
+    return {};
   }
-  return out;
 }
 
 export type PurchaseOutcome = 'purchased' | 'cancelled' | 'error';
