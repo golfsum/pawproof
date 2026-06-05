@@ -5,7 +5,6 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import type { PurchasesPackage } from 'react-native-purchases';
 import { Screen } from '@/components/Screen';
 import { PrimaryButton } from '@/components/PrimaryButton';
-import { useAuth } from '@/hooks/AuthProvider';
 import { DEFAULT_PLAN, GATE_COPY, PAYWALL_COPY, PLANS, type Plan, type PlanId, type PremiumGate } from '@/lib/premium';
 import {
   isPurchasesConfigured,
@@ -20,7 +19,6 @@ import { colors, fonts, radius, spacing, typography } from '@/theme';
 export default function PaywallScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ gate?: string; reason?: string }>();
-  const { togglePremium } = useAuth();
   const [busy, setBusy] = useState(false);
   const [restoring, setRestoring] = useState(false);
   // Live RevenueCat packages keyed by productId. Empty until loaded (or if
@@ -63,21 +61,7 @@ export default function PaywallScreen() {
 
   const handleStart = async () => {
     if (!billingReady) {
-      // In DEV builds, fall back to the manual flag so the flow is testable
-      // before RevenueCat is configured. In production this NEVER grants Plus
-      // for free — it just reports that purchases aren't available yet.
-      if (__DEV__) {
-        setBusy(true);
-        try {
-          await togglePremium(true);
-          Alert.alert('Plus unlocked (dev mode)', 'Dev-only. Real purchases activate once billing is configured on a device build.');
-          router.back();
-        } finally {
-          setBusy(false);
-        }
-      } else {
-        Alert.alert('Purchases unavailable', 'In-app purchases aren\'t available right now. Please try again later.');
-      }
+      Alert.alert('Purchases unavailable', 'In-app purchases aren\'t available right now. Please try again later.');
       return;
     }
 

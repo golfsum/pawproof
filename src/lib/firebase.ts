@@ -73,11 +73,13 @@ try {
 
 storage = getStorage(app);
 
-console.log('[firebase] runtime config', {
-  projectId: app.options.projectId,
-  authDomain: app.options.authDomain,
-  storageBucket: app.options.storageBucket,
-  appId: app.options.appId?.slice(0, 16) + '…',
-});
+if (__DEV__) {
+  console.log('[firebase] runtime config', {
+    projectId: app.options.projectId,
+    authDomain: app.options.authDomain,
+    storageBucket: app.options.storageBucket,
+    appId: app.options.appId?.slice(0, 16) + '…',
+  });
+}
 
 export { app, auth, db, storage };

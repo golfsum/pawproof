@@ -11,7 +11,7 @@ import { colors, radius, spacing, typography } from '@/theme';
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { user, profile, signOut, togglePremium } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const { pets, documents } = useData();
   const [reportOpen, setReportOpen] = useState(false);
 
@@ -77,15 +77,6 @@ export default function SettingsScreen() {
             );
           }}
         />
-
-        {__DEV__ ? (
-          <Row
-            icon="flask-outline"
-            title="Dev: toggle premium"
-            subtitle="Flip the isPremium flag without going through the paywall."
-            onPress={() => togglePremium()}
-          />
-        ) : null}
 
         <Row
           icon="notifications-outline"

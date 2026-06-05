@@ -31,7 +31,6 @@ interface AuthContextValue {
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
-  togglePremium: (next?: boolean) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -129,11 +128,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
       signOut: async () => {
         await fbSignOut(auth);
-      },
-      togglePremium: async (next?: boolean) => {
-        if (!user) return;
-        const target = next ?? !profile?.isPremium;
-        await fsSetPremium(user.uid, target);
       },
     }),
     [user, profile, initializing],

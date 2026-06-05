@@ -134,14 +134,16 @@ export async function getPackages(): Promise<Record<string, PurchasesPackage>> {
         out[pkg.identifier] = pkg;
       }
     }
-    // Diagnostics: surfaces exactly what RevenueCat returned so an empty
-    // offering / missing products / not-approved IAPs are easy to spot.
-    console.log('[purchases] offerings →', {
-      currentOffering: current?.identifier ?? '(none)',
-      packageIds: Object.keys(out),
-      productIds: current?.availablePackages.map(p => p.product.identifier) ?? [],
-      allOfferings: Object.keys(offerings.all ?? {}),
-    });
+    // Diagnostics (dev only): surfaces what RevenueCat returned so an empty
+    // offering / missing products are easy to spot during setup.
+    if (__DEV__) {
+      console.log('[purchases] offerings →', {
+        currentOffering: current?.identifier ?? '(none)',
+        packageIds: Object.keys(out),
+        productIds: current?.availablePackages.map(p => p.product.identifier) ?? [],
+        allOfferings: Object.keys(offerings.all ?? {}),
+      });
+    }
     return out;
   } catch (e) {
     console.warn('[purchases] getOfferings failed:', e);
