@@ -59,7 +59,7 @@
       [
         "@react-native-google-signin/google-signin",
         {
-          "iosUrlScheme": "com.googleusercontent.apps.113400450786-pqvjstkj19u0beb9582mngmcktvj1stt"
+          "iosUrlScheme": "com.googleusercontent.apps.157335586328-ok8feh6fne43bv86f0n3ct7dv2tqhr9f"
         }
       ],
       "expo-asset"
@@ -81,6 +81,10 @@
         "storageBucket": "pawproof-ab9de.firebasestorage.app",
         "messagingSenderId": "157335586328",
         "appId": "1:157335586328:web:47e7a1d7eafd3d7f65256d"
+      },
+      "google": {
+        "iosClientId": "157335586328-ok8feh6fne43bv86f0n3ct7dv2tqhr9f.apps.googleusercontent.com",
+        "webClientId": "157335586328-s7295m6r2bfrpvmqpfkhkp9a0res6g1q.apps.googleusercontent.com"
       }
     }
   }

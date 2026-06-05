@@ -79,15 +79,38 @@ export function SocialAuthButtons({ mode = 'sign-in' }: Props) {
 }
 
 function humanize(e: any): string {
-  const code: string = e?.code ?? '';
+  const code: string = String(e?.code ?? '');
+  const msg: string = String(e?.message ?? '');
+  const blob = `${code} ${msg}`.toLowerCase();
+
+  // Always keep the raw error in the logs for debugging; the user only ever
+  // sees the friendly string returned below.
+  if (__DEV__) console.warn('[socialAuth] raw error:', code, msg);
+
   if (code.includes('auth/account-exists-with-different-credential')) {
-    return 'An account with this email already exists with a different sign-in method.';
+    return 'You already have an account with this email using a different sign-in method. Try that one instead.';
   }
   if (code.includes('auth/operation-not-allowed')) {
-    return 'This sign-in method isn\'t enabled in Firebase. Open Authentication → Sign-in method to turn it on.';
+    return 'This sign-in method isn\'t enabled yet. Please try again later or use email and password.';
   }
-  if (code.includes('auth/network')) return 'Network issue. Check your connection and try again.';
-  return e?.message ?? 'Something went wrong.';
+  // Provider/Firebase project misconfiguration — audience/client mismatches.
+  // These are setup problems on our side, not something the user can fix, so
+  // we keep the message generic and steer them to email sign-in.
+  if (
+    blob.includes('invalid_audience') ||
+    blob.includes('audience') ||
+    code.includes('auth/invalid-credential') ||
+    blob.includes('same project')
+  ) {
+    return 'We couldn\'t complete sign-in right now. Please try again, or use your email and password for now.';
+  }
+  if (blob.includes('network')) {
+    return 'Network issue. Check your connection and try again.';
+  }
+  if (blob.includes('id token') || blob.includes('identity token')) {
+    return 'Sign-in didn\'t complete. Please try again.';
+  }
+  return 'We couldn\'t complete sign-in. Please try again, or use your email and password.';
 }
 
 const styles = StyleSheet.create({

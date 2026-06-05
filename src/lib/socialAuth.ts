@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import {
   GoogleAuthProvider,
   OAuthProvider,
@@ -11,6 +12,17 @@ import {
   statusCodes,
 } from '@react-native-google-signin/google-signin';
 import { auth } from './firebase';
+
+// Source of truth for the Google OAuth client IDs: app.json → extra.google
+// (baked into every build, can't be broken by a wrong/missing EAS env var —
+// the same reason the Firebase config lives there). Fall back to EXPO_PUBLIC_*
+// env vars (used by `expo start` from .env) only when the bundled values are
+// absent. The iOS client ID and Web client ID MUST be in the same Google Cloud
+// project, or Google rejects the token exchange with `invalid_audience`.
+const bundledGoogle = (Constants.expoConfig?.extra?.google ?? {}) as Partial<{
+  iosClientId: string;
+  webClientId: string;
+}>;
 
 export class SocialAuthCancelled extends Error {
   constructor() {
@@ -27,12 +39,25 @@ let googleConfigured = false;
 
 function ensureGoogleConfigured() {
   if (googleConfigured) return;
-  const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
-  const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+  const iosClientId =
+    bundledGoogle.iosClientId ?? process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+  const webClientId =
+    bundledGoogle.webClientId ?? process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
   if (!iosClientId && !webClientId) {
     throw new Error(
-      'Google sign-in not configured. Set EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID and EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID in your .env, then restart Metro.',
+      'Google sign-in not configured. Set extra.google in app.json (or EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID / EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID in .env), then rebuild.',
     );
+  }
+  if (__DEV__) {
+    // Masked diagnostic: confirms WHICH client IDs are actually baked into the
+    // build. The two must share the same project prefix (the digits before the
+    // first dash) or Google returns `invalid_audience`.
+    const mask = (id?: string) => (id ? `${id.slice(0, 22)}…` : '(none)');
+    console.log('[socialAuth] google config', {
+      iosClientId: mask(iosClientId),
+      webClientId: mask(webClientId),
+      source: bundledGoogle.iosClientId ? 'app.json' : 'env',
+    });
   }
   GoogleSignin.configure({ iosClientId, webClientId });
   googleConfigured = true;

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { FormField } from '@/components/FormField';
@@ -32,9 +32,12 @@ export default function SignInScreen() {
     <Screen padded avoidKeyboard edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.brandWrap}>
-          <View style={styles.brandIcon}>
-            <Text style={{ fontSize: 38 }}>🐾</Text>
-          </View>
+          <Image
+            source={require('../../assets/icon.png')}
+            style={styles.brandIcon}
+            resizeMode="contain"
+            accessibilityLabel="PawProof logo"
+          />
           <Text style={typography.display}>PawProof</Text>
           <Text style={[typography.body, { color: colors.textMuted, textAlign: 'center' }]}>
             One place to keep every reminder, record, and photo for the pets in your life.
@@ -92,12 +95,9 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: spacing['2xl'], gap: spacing.xl },
   brandWrap: { alignItems: 'center', gap: spacing.sm },
   brandIcon: {
-    width: 84,
-    height: 84,
-    borderRadius: 28,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 88,
+    height: 88,
+    borderRadius: 22,
     marginBottom: spacing.sm,
   },
   form: { gap: spacing.md },

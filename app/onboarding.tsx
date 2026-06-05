@@ -19,7 +19,7 @@ import { PhotoPicker } from '@/components/PhotoPicker';
 import { DateField } from '@/components/DateField';
 import { useAuth } from '@/hooks/AuthProvider';
 import { useGate } from '@/hooks/useGate';
-import { createPet, createReminder, markOnboardingComplete } from '@/lib/firestore';
+import { createPet, createReminder } from '@/lib/firestore';
 import { scheduleReminderForPet } from '@/lib/notifications';
 import { uploadCompressedPhoto } from '@/lib/storage';
 import { SPECIES_LABEL } from '@/utils/petIcon';
@@ -70,7 +70,7 @@ const REMINDER_SUGGESTIONS: ReminderSuggestion[] = [
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, completeOnboarding } = useAuth();
   const { check, isPremium } = useGate();
 
   const [step, setStep] = useState<Step>('count');
@@ -112,16 +112,12 @@ export default function OnboardingScreen() {
   const [finishing, setFinishing] = useState(false);
 
   const finish = (extra?: { goScan?: boolean }) => {
-    // Navigate immediately. Persisting the onboardingCompleted flag must
-    // NEVER block leaving onboarding — if Firestore is slow or unreachable,
-    // awaiting the write would trap the user on this screen (this is why the
-    // Skip button looked dead). Fire it in the background; if it fails, the
-    // gate simply re-shows onboarding on a later launch once writes succeed.
-    if (user) {
-      markOnboardingComplete(user.uid, Array.from(interests)).catch(err => {
-        console.warn('[onboarding] markOnboardingComplete failed (will retry next launch)', err);
-      });
-    }
+    // Navigate immediately. completeOnboarding optimistically flips the local
+    // profile flag (so the root nav guard doesn't bounce us straight back to
+    // onboarding — the "skip flashes back" bug) and persists to Firestore in
+    // the background. Awaiting the write would trap the user here if Firestore
+    // is slow; if it fails, the gate re-shows onboarding on a later launch.
+    completeOnboarding(Array.from(interests));
     if (extra?.goScan) {
       router.replace('/document/scan');
     } else {
@@ -298,13 +294,29 @@ export default function OnboardingScreen() {
                 </Pressable>
               </View>
               {hasMorePets && !isPremium ? (
-                <Text style={styles.countNote}>
-                  The free plan covers {FREE_PET_LIMIT} pets. Add your first {FREE_PET_LIMIT} now and
-                  unlock the rest with PawProof Plus anytime.
-                </Text>
+                <View style={styles.countNote}>
+                  <Text style={styles.countNoteText}>
+                    The free plan covers {FREE_PET_LIMIT} pets. Add your first {FREE_PET_LIMIT} now —
+                    you can unlock unlimited pets with PawProof Plus anytime.
+                  </Text>
+                  <Pressable
+                    onPress={() =>
+                      router.push({
+                        pathname: '/paywall',
+                        params: {
+                          gate: 'add_pet',
+                          reason: `The free plan includes ${FREE_PET_LIMIT} pets. Upgrade to PawProof Plus for unlimited pets, or continue free with up to ${FREE_PET_LIMIT}.`,
+                        },
+                      })
+                    }
+                    hitSlop={6}
+                  >
+                    <Text style={styles.countNoteLink}>See PawProof Plus →</Text>
+                  </Pressable>
+                </View>
               ) : null}
               <PrimaryButton
-                title="Continue"
+                title={hasMorePets && !isPremium ? `Continue with ${FREE_PET_LIMIT} pets` : 'Continue'}
                 onPress={() => setStep('pet')}
                 icon="arrow-forward-outline"
               />
@@ -617,13 +629,22 @@ const styles = StyleSheet.create({
   countLabel: { fontSize: 13, color: colors.textMuted },
   countLabelOn: { color: colors.primary },
   countNote: {
+    backgroundColor: colors.primarySoft,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    gap: spacing.sm,
+    alignItems: 'center',
+  },
+  countNoteText: {
     fontSize: 13,
     color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 19,
-    backgroundColor: colors.primarySoft,
-    padding: spacing.md,
-    borderRadius: radius.md,
+  },
+  countNoteLink: {
+    fontSize: 13,
+    fontFamily: fonts.body.semibold,
+    color: colors.primary,
   },
 
   suggestionRow: {

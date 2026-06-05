@@ -15,6 +15,10 @@ export default function SettingsScreen() {
   const { pets, documents } = useData();
   const [reportOpen, setReportOpen] = useState(false);
 
+  // Which method this account signed in with, derived from Firebase's
+  // providerData (google.com / apple.com / password).
+  const authProvider = authProviderInfo(user?.providerData?.map(p => p.providerId));
+
   const handleSignOut = () => {
     Alert.alert('Sign out?', 'You can sign back in anytime.', [
       { text: 'Cancel', style: 'cancel' },
@@ -42,6 +46,10 @@ export default function SettingsScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={typography.bodyStrong}>{profile?.email ?? user?.email ?? 'You'}</Text>
+            <View style={styles.providerRow}>
+              <Ionicons name={authProvider.icon} size={12} color={colors.textMuted} />
+              <Text style={typography.caption}>Signed in with {authProvider.label}</Text>
+            </View>
             <Text style={[typography.caption]}>{pets.length} pets · {documents.length} documents</Text>
           </View>
           {profile?.isPremium ? (
@@ -215,6 +223,18 @@ function Row({
   );
 }
 
+// Map Firebase providerData ids to a friendly label + icon for the account
+// card. Apple/Google take priority over the email/password provider when an
+// account happens to have more than one linked.
+function authProviderInfo(
+  providerIds?: string[],
+): { label: string; icon: keyof typeof Ionicons.glyphMap } {
+  const ids = providerIds ?? [];
+  if (ids.includes('apple.com')) return { label: 'Apple', icon: 'logo-apple' };
+  if (ids.includes('google.com')) return { label: 'Google', icon: 'logo-google' };
+  return { label: 'email', icon: 'mail-outline' };
+}
+
 // Small "PLUS" badge used to flag rows that require a subscription.
 // Same visual as the account-card plusBadge but standalone.
 function PlusPill() {
@@ -257,6 +277,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 4,
   },
   plusText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.6 },
+  providerRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 },
   // Compact "PLUS" pill used on rows that require a subscription.
   // Visually matches the account-card badge but with slightly tighter
   // padding so it doesn't crowd the trailing chevron.

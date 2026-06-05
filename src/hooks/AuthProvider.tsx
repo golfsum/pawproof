@@ -7,7 +7,12 @@ import {
   User,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { ensureUserProfile, watchUserProfile, setPremium as fsSetPremium } from '@/lib/firestore';
+import {
+  ensureUserProfile,
+  watchUserProfile,
+  setPremium as fsSetPremium,
+  markOnboardingComplete as fsMarkOnboardingComplete,
+} from '@/lib/firestore';
 import {
   signInWithGoogle as nativeSignInWithGoogle,
   signInWithApple as nativeSignInWithApple,
@@ -31,6 +36,13 @@ interface AuthContextValue {
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
+  /**
+   * Mark onboarding complete. Optimistically flips the local profile flag so
+   * the root nav guard doesn't bounce the user back to onboarding while the
+   * Firestore write is still in flight (the cause of the "skip flashes back"
+   * bug). The write runs in the background.
+   */
+  completeOnboarding: (interests?: string[]) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -128,6 +140,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
       signOut: async () => {
         await fbSignOut(auth);
+      },
+      completeOnboarding: (interests?: string[]) => {
+        // Optimistic local flip so the guard sees onboardingCompleted=true
+        // immediately (no flash back to the wizard).
+        setRawProfile(prev => (prev ? { ...prev, onboardingCompleted: true } : prev));
+        if (user) {
+          fsMarkOnboardingComplete(user.uid, interests).catch(err => {
+            console.warn('[auth] markOnboardingComplete failed (will retry next launch)', err);
+          });
+        }
       },
     }),
     [user, profile, initializing],

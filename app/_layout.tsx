@@ -49,6 +49,11 @@ function RootNav() {
     if (initializing) return;
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboarding = segments[0] === 'onboarding';
+    // The paywall is a modal that onboarding itself can open (the 3+ pets
+    // nudge). Treat it as part of the onboarding flow so the guard below
+    // doesn't yank a not-yet-onboarded user off the paywall and back to the
+    // wizard the instant it's pushed.
+    const inPaywall = segments[0] === 'paywall';
     if (!user && !inAuthGroup) {
       router.replace('/(auth)/sign-in');
       return;
@@ -61,7 +66,7 @@ function RootNav() {
     // get the 4-step onboarding wizard before the tabs. Once they
     // finish (or skip), markOnboardingComplete flips the flag and the
     // detour stops firing on subsequent sign-ins.
-    if (user && profile && !profile.onboardingCompleted && !inOnboarding && !inAuthGroup) {
+    if (user && profile && !profile.onboardingCompleted && !inOnboarding && !inAuthGroup && !inPaywall) {
       router.replace('/onboarding');
       return;
     }
