@@ -102,7 +102,11 @@ export type PlanId = 'monthly' | 'yearly' | 'lifetime';
 
 export interface Plan {
   id: PlanId;
+  /** App Store product identifier (used for display/reference). */
   productId: string;
+  /** RevenueCat package identifier — stable across Test Store and App Store
+   *  (e.g. '$rc_monthly'). This is what we match offerings on. */
+  packageId: string;
   label: string;
   price: string;
   perMonth?: string;
@@ -117,6 +121,7 @@ export const PLANS: Record<PlanId, Plan> = {
   yearly: {
     id: 'yearly',
     productId: 'plus_yearly_3999',
+    packageId: '$rc_annual',
     label: 'Yearly',
     price: '$39.99/year',
     perMonth: '$3.33/month',
@@ -128,6 +133,7 @@ export const PLANS: Record<PlanId, Plan> = {
   monthly: {
     id: 'monthly',
     productId: 'plus_monthly_499',
+    packageId: '$rc_monthly',
     label: 'Monthly',
     price: '$4.99/month',
     trialDays: 7,
@@ -137,6 +143,7 @@ export const PLANS: Record<PlanId, Plan> = {
   lifetime: {
     id: 'lifetime',
     productId: 'plus_lifetime_8999',
+    packageId: '$rc_lifetime',
     label: 'Lifetime',
     price: '$89.99 one-time',
     trialDays: null,

@@ -9,7 +9,7 @@ import { useAuth } from '@/hooks/AuthProvider';
 import { DEFAULT_PLAN, GATE_COPY, PAYWALL_COPY, PLANS, type Plan, type PlanId, type PremiumGate } from '@/lib/premium';
 import {
   isPurchasesConfigured,
-  getActivePlanProductId,
+  getActivePackageId,
   getPackages,
   purchasePackage,
   restorePurchases,
@@ -41,9 +41,9 @@ export default function PaywallScreen() {
   useEffect(() => {
     if (!billingReady) return;
     getPackages().then(setPackages).catch(() => {});
-    getActivePlanProductId().then(pid => {
-      if (!pid) return;
-      const match = (Object.values(PLANS) as Plan[]).find(p => p.productId === pid);
+    getActivePackageId().then(pkgId => {
+      if (!pkgId) return;
+      const match = (Object.values(PLANS) as Plan[]).find(p => p.packageId === pkgId);
       if (match) {
         setCurrentPlanId(match.id);
         setSelected(match.id); // highlight their current plan by default
@@ -80,7 +80,7 @@ export default function PaywallScreen() {
       return;
     }
 
-    const pkg = packages[plan.productId];
+    const pkg = packages[plan.packageId];
     if (!pkg) {
       Alert.alert('Unavailable', 'This plan isn\'t available right now. Please try again later.');
       return;

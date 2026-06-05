@@ -65,15 +65,32 @@ export function hasPlus(info: CustomerInfo | null | undefined): boolean {
   return info.entitlements.active[PLUS_ENTITLEMENT] != null;
 }
 
-// The productIdentifier backing the active Plus entitlement (e.g.
-// 'plus_yearly_3999'), or null if not subscribed / not configured. Lets the
-// paywall show "You're on Yearly" and offer the other billing periods.
+// The product identifier backing the active Plus entitlement, or null if not
+// subscribed / not configured. Lets the paywall show "You're on Yearly".
 export async function getActivePlanProductId(): Promise<string | null> {
   if (!configured) return null;
   try {
     const info = await Purchases.getCustomerInfo();
     const ent = info.entitlements.active[PLUS_ENTITLEMENT];
     return ent?.productIdentifier ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// Map the active entitlement's product back to the package identifier
+// ($rc_monthly/$rc_annual/$rc_lifetime) by matching it against the current
+// offering — robust across Test Store and App Store, where product ids differ.
+export async function getActivePackageId(): Promise<string | null> {
+  if (!configured) return null;
+  try {
+    const info = await Purchases.getCustomerInfo();
+    const ent = info.entitlements.active[PLUS_ENTITLEMENT];
+    if (!ent) return null;
+    const offerings = await Purchases.getOfferings();
+    const pkgs = offerings.current?.availablePackages ?? [];
+    const match = pkgs.find(p => p.product.identifier === ent.productIdentifier);
+    return match?.identifier ?? null;
   } catch {
     return null;
   }
@@ -99,7 +116,13 @@ export function addPremiumListener(cb: (isPremium: boolean) => void): () => void
   return () => Purchases.removeCustomerInfoUpdateListener(handler);
 }
 
-/** Fetch the current offering's purchasable packages, keyed by productId. */
+/**
+ * Fetch the current offering's purchasable packages, keyed by the RevenueCat
+ * PACKAGE identifier ($rc_monthly / $rc_annual / $rc_lifetime). We key on the
+ * package id — not pkg.product.identifier — because the product id differs
+ * between the Test Store and the real App Store, whereas the package id is
+ * stable across both. The paywall looks plans up by plan.packageId.
+ */
 export async function getPackages(): Promise<Record<string, PurchasesPackage>> {
   if (!configured) return {};
   try {
@@ -108,14 +131,15 @@ export async function getPackages(): Promise<Record<string, PurchasesPackage>> {
     const out: Record<string, PurchasesPackage> = {};
     if (current) {
       for (const pkg of current.availablePackages) {
-        out[pkg.product.identifier] = pkg;
+        out[pkg.identifier] = pkg;
       }
     }
     // Diagnostics: surfaces exactly what RevenueCat returned so an empty
     // offering / missing products / not-approved IAPs are easy to spot.
     console.log('[purchases] offerings →', {
       currentOffering: current?.identifier ?? '(none)',
-      productIds: Object.keys(out),
+      packageIds: Object.keys(out),
+      productIds: current?.availablePackages.map(p => p.product.identifier) ?? [],
       allOfferings: Object.keys(offerings.all ?? {}),
     });
     return out;
