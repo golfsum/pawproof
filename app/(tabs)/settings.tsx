@@ -159,16 +159,8 @@ export default function SettingsScreen() {
         <Row
           icon="archive-outline"
           title="Your data"
-          subtitle="Export backups or records PDFs"
+          subtitle="Export backups, or delete your data or account"
           onPress={() => router.push('/data/export')}
-        />
-
-        <Row
-          icon="trash-outline"
-          title="Delete account"
-          subtitle="Permanently erase your account and all data"
-          danger
-          onPress={() => router.push('/settings/delete-account')}
         />
 
         <Row

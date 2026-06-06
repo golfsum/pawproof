@@ -148,7 +148,7 @@ export default function DataExportScreen() {
               <Text style={styles.dangerTitle}>Delete all my data</Text>
               <Text style={styles.dangerBody}>
                 Removes every pet, record, document, reminder, and journal
-                entry from this account. Cannot be undone.
+                entry, but keeps your account and login. Cannot be undone.
               </Text>
             </View>
           </View>
@@ -238,6 +238,31 @@ export default function DataExportScreen() {
               <Ionicons name="chevron-down" size={16} color={colors.danger} />
             </Pressable>
           )}
+        </View>
+
+        {/* Account deletion — removes the login itself too, not just the
+            records. Routes to the dedicated flow which re-authenticates
+            (password / Apple / Google) before permanently deleting. */}
+        <View style={styles.dangerCard}>
+          <View style={styles.dangerHeader}>
+            <View style={styles.dangerIcon}>
+              <Ionicons name="person-remove-outline" size={20} color={colors.danger} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.dangerTitle}>Delete account</Text>
+              <Text style={styles.dangerBody}>
+                Permanently deletes your account and login along with all of
+                your data. Cannot be undone.
+              </Text>
+            </View>
+          </View>
+          <Pressable
+            onPress={() => router.push('/settings/delete-account')}
+            style={({ pressed }) => [styles.dangerOpen, pressed && { opacity: 0.85 }]}
+          >
+            <Text style={styles.dangerOpenText}>Delete account</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.danger} />
+          </Pressable>
         </View>
       </ScrollView>
 
