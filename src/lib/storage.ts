@@ -1,4 +1,4 @@
-import { ref, uploadString, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, deleteObject } from 'firebase/storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { auth, storage } from './firebase';
@@ -7,12 +7,14 @@ import { auth, storage } from './firebase';
  * Upload a local file URI (file://...) to Firebase Storage.
  * Returns the public download URL.
  *
- * IMPORTANT — RN upload path: we read the file as base64 and use
- * uploadString(..., 'base64') rather than uploadBytes(blob). On React
- * Native / Hermes, the Blob produced from an XHR request is missing the
- * internals uploadBytes relies on, so uploadBytes can hang FOREVER with
- * no error (the "endless spinner, document never saves" bug). Base64 +
- * uploadString avoids Blob entirely and is reliable across RN runtimes.
+ * IMPORTANT — RN upload path: we upload the file BINARY straight to Firebase
+ * Storage's REST endpoint via expo-file-system's uploadAsync, instead of the
+ * Firebase JS SDK's uploadBytes/uploadString. On React Native the SDK builds a
+ * Blob from the file bytes for the request body, and RN's Blob can't be
+ * constructed from an ArrayBuffer/typed array — it throws "creating blobs from
+ * 'ArrayBuffer' and 'ArrayBufferView' are not supported" (and older versions
+ * silently hung forever — the "endless spinner" bug). uploadAsync streams the
+ * file directly, touching neither Blob nor base64, and is reliable + faster.
  * A hard timeout guarantees we surface a failure instead of hanging.
  */
 export async function uploadFile(
@@ -28,40 +30,75 @@ export async function uploadFile(
     throw new Error('Auth user mismatch, refusing to upload.');
   }
 
-  let base64: string;
-  try {
-    base64 = await uriToBase64(localUri);
-  } catch (e: any) {
-    throw new Error(`Could not read the local file: ${e?.message ?? e}`);
+  const bucket = storage.app.options.storageBucket;
+  if (!bucket) {
+    throw new Error('Storage bucket is not configured.');
   }
-  if (!base64) {
-    throw new Error('The selected file appears to be empty.');
+
+  // Firebase ID token authorizes the request against Storage security rules.
+  let idToken: string;
+  try {
+    idToken = await auth.currentUser.getIdToken();
+  } catch (e: any) {
+    throw new Error(`Could not authenticate the upload: ${e?.message ?? e}`);
   }
 
   const ext = contentType === 'application/pdf' ? 'pdf' : 'jpg';
   const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const objectPath = `users/${uid}/${folder}/${fileName}`;
-  const r = ref(storage, objectPath);
+  const encodedPath = encodeURIComponent(objectPath);
+  // v0 "media" upload: object name goes in the query, bytes in the body.
+  const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encodedPath}`;
 
+  let resp: FileSystem.FileSystemUploadResult;
   try {
-    await withUploadTimeout(
-      uploadString(r, base64, 'base64', { contentType }),
+    resp = await withUploadTimeout(
+      FileSystem.uploadAsync(uploadUrl, localUri, {
+        httpMethod: 'POST',
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        headers: {
+          // Firebase Storage REST uses the "Firebase" auth scheme, not Bearer.
+          Authorization: `Firebase ${idToken}`,
+          'Content-Type': contentType,
+        },
+      }),
       60_000,
     );
-    return await withUploadTimeout(getDownloadURL(r), 20_000);
   } catch (e: any) {
-    const code: string | undefined = e?.code;
-    const serverResp: string | undefined =
-      e?.customData?.serverResponse ?? e?.serverResponse;
-    console.error('[storage] upload failed', {
-      code,
+    console.error('[storage] upload failed (network)', {
       message: e?.message,
-      serverResponse: serverResp,
-      bucket: storage.app.options.storageBucket,
+      bucket,
       objectPath,
       uid,
     });
-    throw new Error(humanizeStorageError(code, serverResp, e?.message));
+    throw new Error(e?.message ?? 'Upload failed.');
+  }
+
+  if (resp.status < 200 || resp.status >= 300) {
+    let serverMsg = '';
+    try {
+      serverMsg = JSON.parse(resp.body)?.error?.message ?? '';
+    } catch {
+      serverMsg = (resp.body ?? '').slice(0, 300);
+    }
+    console.error('[storage] upload failed', {
+      status: resp.status,
+      serverMessage: serverMsg,
+      bucket,
+      objectPath,
+      uid,
+    });
+    throw new Error(humanizeStorageError(String(resp.status), serverMsg));
+  }
+
+  // Build the public download URL from the returned downloadTokens.
+  try {
+    const meta = JSON.parse(resp.body) as { downloadTokens?: string };
+    const token = meta.downloadTokens?.split(',')[0];
+    const tokenParam = token ? `&token=${token}` : '';
+    return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodedPath}?alt=media${tokenParam}`;
+  } catch {
+    throw new Error('Upload succeeded but the server response was unreadable.');
   }
 }
 
@@ -83,6 +120,16 @@ function withUploadTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 
 function humanizeStorageError(code?: string, serverResp?: string, fallback?: string): string {
   const c = code ?? '';
+  // HTTP status codes from the REST upload path.
+  if (c === '401' || c === '403') {
+    return 'Storage rules denied the upload. Check Firebase Console → Storage → Rules (and that you are signed in).';
+  }
+  if (c === '404') {
+    return `Storage bucket not found. Check the bucket name in Firebase config.${serverResp ? ` (${serverResp})` : ''}`;
+  }
+  if (c === '413') return 'File is too large to upload.';
+  if (c === '429') return 'Too many uploads right now. Wait a moment and try again.';
+  // Legacy Firebase SDK error-code strings (kept for safety).
   if (c.includes('unauthorized')) {
     return 'Storage rules denied the upload. Check Firebase Console → Storage → Rules.';
   }
@@ -91,7 +138,7 @@ function humanizeStorageError(code?: string, serverResp?: string, fallback?: str
   if (c.includes('object-not-found')) return 'Storage object missing after upload.';
   if (c.includes('retry-limit-exceeded')) return 'Upload timed out. Check your network.';
   if (serverResp) {
-    // Firebase puts the real error here for storage/unknown. E.g.
+    // Firebase puts the real error here. E.g.
     // "Bucket pawproof-foo.firebasestorage.app does not exist."
     return serverResp.slice(0, 300);
   }
