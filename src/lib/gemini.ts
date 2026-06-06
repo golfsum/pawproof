@@ -25,12 +25,22 @@ async function runOcrViaProxy(prompt: string, imageUri: string): Promise<string>
 
   if (!res.ok) {
     let msg = `Scan failed (${res.status}).`;
+    let rawBody = '';
     try {
-      const body = await res.json();
+      rawBody = await res.text();
+      const body = JSON.parse(rawBody);
       if (body?.error) msg = body.error;
     } catch {
       // non-JSON error; keep the status message
     }
+    // Log the full failure to the dev console so OCR problems are visible in
+    // Metro/device logs without needing server-side log access.
+    console.error('[ocr] proxy request failed', {
+      status: res.status,
+      endpoint: OCR_ENDPOINT,
+      message: msg,
+      body: rawBody.slice(0, 500),
+    });
     throw new Error(msg);
   }
   const body = await res.json();

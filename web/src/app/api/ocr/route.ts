@@ -74,7 +74,21 @@ export async function POST(req: NextRequest) {
   if (!geminiRes.ok) {
     const detail = await geminiRes.text().catch(() => "");
     console.error("[ocr] gemini error", geminiRes.status, detail.slice(0, 300));
-    return json({ error: `OCR failed (${geminiRes.status}).` }, 502);
+    // Surface Gemini's own status + message back to the client so failures are
+    // diagnosable without server log access. The detail is just an upstream
+    // HTTP status/reason (no secrets), e.g. "403 ... API key not valid" or
+    // "PERMISSION_DENIED ... API has not been used in project ...".
+    let reason = "";
+    try {
+      const parsed = JSON.parse(detail);
+      reason = parsed?.error?.message ?? parsed?.error?.status ?? "";
+    } catch {
+      reason = detail.slice(0, 200);
+    }
+    return json(
+      { error: `OCR failed (${geminiRes.status})${reason ? `: ${reason}` : ""}` },
+      502,
+    );
   }
 
   const data = await geminiRes.json();
