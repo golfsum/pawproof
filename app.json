@@ -14,7 +14,7 @@
       "backgroundColor": "#FAF1DD"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.pawproof.app",
       "usesAppleSignIn": true,
       "infoPlist": {
@@ -31,9 +31,7 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#FAF7F2"
       },
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ]
+      "permissions": []
     },
     "web": {
       "bundler": "metro",
