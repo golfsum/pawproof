@@ -13,5 +13,7 @@ export default function Index() {
       </View>
     );
   }
-  return <Redirect href={user ? '/(tabs)' : '/(auth)/sign-in'} />;
+  // Unauthenticated users land on the welcome carousel (value before the
+  // login wall); welcome has a prominent "Sign in" link for returning users.
+  return <Redirect href={(user ? '/(tabs)' : '/(auth)/welcome') as never} />;
 }
