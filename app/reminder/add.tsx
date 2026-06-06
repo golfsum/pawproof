@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { FormField } from '@/components/FormField';
 import { PrimaryButton } from '@/components/PrimaryButton';
@@ -10,7 +10,13 @@ import { useAuth } from '@/hooks/AuthProvider';
 import { useData } from '@/hooks/useData';
 import { useGate } from '@/hooks/useGate';
 import { createReminder } from '@/lib/firestore';
-import { scheduleGroupedReminder, scheduleReminderForPet } from '@/lib/notifications';
+import {
+  scheduleGroupedReminder,
+  scheduleReminderForPet,
+  getNotificationPermission,
+  requestNotificationPermission,
+} from '@/lib/notifications';
+import { shouldNudgeNotifOnReminder } from '@/lib/appPrompts';
 import { colors, spacing } from '@/theme';
 import {
   REMINDER_CATEGORY_CONFIG,
@@ -189,6 +195,9 @@ export default function AddReminderScreen() {
         });
       }
       router.back();
+      // Gently nudge to enable notifications if they're off — reminders are
+      // useless without them. Paced so it's occasional, not every save.
+      void maybeNudgeNotifications();
     } catch (e: any) {
       Alert.alert('Could not save', e?.message ?? 'Try again.');
     } finally {
@@ -280,6 +289,38 @@ export default function AddReminderScreen() {
       </ScrollView>
     </KeyboardAvoidingView>
   );
+}
+
+// Occasionally prompt to enable notifications after creating a reminder, but
+// only when they're not already granted. Undetermined → native prompt;
+// denied → offer to open Settings (iOS won't show the native prompt twice).
+async function maybeNudgeNotifications(): Promise<void> {
+  try {
+    const status = await getNotificationPermission();
+    if (status === 'granted') return;
+    if (!(await shouldNudgeNotifOnReminder())) return;
+    if (status === 'undetermined') {
+      Alert.alert(
+        'Turn on reminders?',
+        'Allow notifications so PawProof can alert you when this and other care tasks are due.',
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Enable', onPress: () => { void requestNotificationPermission(); } },
+        ],
+      );
+    } else {
+      Alert.alert(
+        'Reminders won’t alert you',
+        'Notifications are turned off for PawProof, so your reminders won’t pop up. You can turn them on in Settings.',
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => { void Linking.openSettings(); } },
+        ],
+      );
+    }
+  } catch {
+    // pacing/permission errors are non-critical
+  }
 }
 
 const styles = StyleSheet.create({

@@ -1,5 +1,5 @@
 import 'react-native-gesture-handler';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -14,7 +14,16 @@ import {
 import { Quicksand_600SemiBold, Quicksand_700Bold } from '@expo-google-fonts/quicksand';
 import { AuthProvider, useAuth } from '@/hooks/AuthProvider';
 import { DataProvider, useData } from '@/hooks/useData';
-import { setupAndroidChannel } from '@/lib/notifications';
+import {
+  setupAndroidChannel,
+  getNotificationPermission,
+  requestNotificationPermission,
+} from '@/lib/notifications';
+import {
+  recordAppOpen,
+  shouldRequestNotifFirstRun,
+  shouldShowStartupPaywall,
+} from '@/lib/appPrompts';
 import { FREE_LIMITS } from '@/lib/premium';
 import { AnimatedSplash } from '@/components/AnimatedSplash';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -37,6 +46,9 @@ function RootNav() {
   const segments = useSegments();
   const router = useRouter();
   const [splashUnmounted, setSplashUnmounted] = useState(false);
+  // Guards the startup-prompt logic (first-run notif ask / occasional paywall)
+  // so it runs at most once per app launch, not on every segment change.
+  const startupHandledRef = useRef(false);
   const [fontsLoaded] = useFonts({
     PlusJakartaSans_400Regular,
     PlusJakartaSans_500Medium,
@@ -84,6 +96,41 @@ function RootNav() {
       router.replace('/downgrade' as never);
     }
   }, [user, profile, initializing, segments, pets]);
+
+  // Startup engagement prompts — runs once per launch, only once the user is
+  // signed in and past onboarding/downgrade (so it never fights those flows).
+  //   1. First ever run: ask for notification permission.
+  //   2. Returning free users: show the paywall every ~10–15 launches
+  //      (never on the first run), so it nudges without nagging.
+  useEffect(() => {
+    if (initializing || !user || !profile) return;
+    if (!profile.onboardingCompleted) return;
+    const inAuthGroup = segments[0] === '(auth)';
+    const inOnboarding = segments[0] === 'onboarding';
+    const inDowngrade = (segments[0] as string) === 'downgrade';
+    if (inAuthGroup || inOnboarding || inDowngrade) return;
+    if (startupHandledRef.current) return;
+    startupHandledRef.current = true;
+
+    (async () => {
+      try {
+        const openCount = await recordAppOpen();
+        // First run: surface the notification permission ask once.
+        if (await shouldRequestNotifFirstRun()) {
+          if ((await getNotificationPermission()) === 'undetermined') {
+            await requestNotificationPermission();
+          }
+          return; // don't also paywall on the very first run
+        }
+        // Returning free users: occasional start-up paywall.
+        if (!profile.isPremium && (await shouldShowStartupPaywall(openCount))) {
+          router.push('/paywall');
+        }
+      } catch (e) {
+        console.warn('[startup] prompt logic failed', e);
+      }
+    })();
+  }, [initializing, user, profile, segments, router]);
 
   return (
     <>
