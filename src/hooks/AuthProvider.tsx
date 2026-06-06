@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { AppState } from 'react-native';
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
@@ -64,6 +65,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Premium from RevenueCat's "plus" entitlement (null = unknown/not yet
   // configured, so we fall back to the Firestore flag below).
   const [entitlementPremium, setEntitlementPremium] = useState<boolean | null>(null);
+  // Flips true once RevenueCat is actually configured. Drives the premium-sync
+  // effect so it can't run-and-bail before billing is ready (which left
+  // entitlementPremium stuck at null and gated paying users — the
+  // "subscribed but can't add a 3rd pet" bug).
+  const [purchasesReady, setPurchasesReady] = useState(false);
 
   // Effective profile: RevenueCat entitlement is the source of truth for
   // isPremium when billing is configured; otherwise use the Firestore flag
@@ -92,9 +98,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Tie RevenueCat to this Firebase user so purchases follow identity.
         // Never let a billing init problem break auth/app startup.
         try { configurePurchases(u.uid); } catch (e) { console.warn('[auth] configurePurchases threw', e); }
+        // Signal readiness so the premium-sync effect runs AFTER configure
+        // (not before), regardless of effect/callback ordering.
+        setPurchasesReady(isPurchasesConfigured());
       } else {
         setRawProfile(null);
         setEntitlementPremium(null);
+        setPurchasesReady(false);
       }
     });
     return unsub;
@@ -119,19 +129,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // purchases/renewals/expiries. Mirror the result into Firestore so the web
   // dashboard and the (future) downgrade trigger see the same truth.
   useEffect(() => {
-    if (!user || !isPurchasesConfigured()) return;
+    if (!user || !purchasesReady) return;
     let mounted = true;
-    fetchIsPremium().then(p => {
-      if (mounted) setEntitlementPremium(p);
-    });
+    const refresh = () => {
+      fetchIsPremium().then(p => {
+        if (mounted) setEntitlementPremium(p);
+      });
+    };
+    // Initial fetch + live listener for purchases/renewals/expiries.
+    refresh();
     const remove = addPremiumListener(p => {
       if (!mounted) return;
       setEntitlementPremium(p);
       // Best-effort mirror; ignore failures (entitlement stays source of truth).
       fsSetPremium(user.uid, p).catch(() => {});
     });
-    return () => { mounted = false; remove(); };
-  }, [user?.uid]);
+    // Re-check whenever the app returns to the foreground, so a purchase,
+    // renewal, or expiry that happened elsewhere is reflected promptly.
+    const appStateSub = AppState.addEventListener('change', s => {
+      if (s === 'active') refresh();
+    });
+    return () => {
+      mounted = false;
+      remove();
+      appStateSub.remove();
+    };
+  }, [user?.uid, purchasesReady]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
