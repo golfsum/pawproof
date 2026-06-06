@@ -54,7 +54,7 @@ const QUICK_LOGS: { kind: QuickLogKind; label: string; icon: keyof typeof Ionico
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, profile } = useAuth();
+  const { user, profile, isGuest } = useAuth();
   const { pets, entries, reminders, vaccines, documents, receivedShares } = useData();
   const { check } = useGate();
 
@@ -382,6 +382,20 @@ export default function HomeScreen() {
           <Text style={styles.date}>{format(new Date(), 'EEEE, MMM d')}</Text>
           <Text style={typography.h1}>{greeting}</Text>
         </View>
+
+        {isGuest ? (
+          <Pressable
+            onPress={() => router.push('/account/upgrade' as never)}
+            style={({ pressed }) => [styles.guestBanner, pressed && { opacity: 0.9 }]}
+          >
+            <Ionicons name="cloud-upload-outline" size={20} color={colors.primary} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.guestBannerTitle}>You’re exploring as a guest</Text>
+              <Text style={styles.guestBannerSub}>Create a free account to save & sync your pets.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+          </Pressable>
+        ) : null}
 
         <View style={styles.statusRow}>
           <StatusCard label="Due Today" count={dueToday.length} tone="primary" icon="time-outline" onPress={() => router.push({ pathname: '/(tabs)/reminders', params: { bucket: 'today' } })} />
@@ -893,6 +907,20 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   date: { fontSize: 13, color: colors.textMuted, fontWeight: '600', letterSpacing: 0.4, textTransform: 'uppercase' },
+  guestBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginHorizontal: spacing.base,
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.primary + '33',
+  },
+  guestBannerTitle: { fontSize: 14, fontWeight: '700', color: colors.primaryDark },
+  guestBannerSub: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   moreLink: {
     flexDirection: 'row',
     alignItems: 'center',

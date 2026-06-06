@@ -5,6 +5,7 @@ import {
   OAuthProvider,
   signInWithCredential,
   reauthenticateWithCredential,
+  linkWithCredential,
   UserCredential,
 } from 'firebase/auth';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -126,6 +127,65 @@ export async function reauthWithApple(): Promise<void> {
     await reauthenticateWithCredential(u, firebaseCredential);
   } catch (err: any) {
     if (err?.code === 'ERR_REQUEST_CANCELED') throw new SocialAuthCancelled();
+    throw err;
+  }
+}
+
+// Thrown when linking a guest account to a credential that already belongs to
+// another account. The UI offers "sign in to that account instead" (which
+// abandons the guest's local data).
+export class CredentialInUseError extends Error {
+  constructor() {
+    super('credential-already-in-use');
+    this.name = 'CredentialInUseError';
+  }
+}
+
+// Link a fresh Google credential to the CURRENT (anonymous) user, preserving
+// the uid and all their data. Throws CredentialInUseError if that Google
+// account is already attached to a different PawProof account.
+export async function linkWithGoogle(): Promise<UserCredential> {
+  ensureGoogleConfigured();
+  const u = auth.currentUser;
+  if (!u) throw new Error('You must be signed in.');
+  await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+  const response: any = await GoogleSignin.signIn();
+  if (response?.type === 'cancelled') throw new SocialAuthCancelled();
+  const idToken: string | undefined = response?.data?.idToken ?? response?.idToken;
+  if (!idToken) throw new Error('Google did not return an ID token.');
+  const credential = GoogleAuthProvider.credential(idToken);
+  try {
+    return await linkWithCredential(u, credential);
+  } catch (e: any) {
+    if (e?.code === 'auth/credential-already-in-use' || e?.code === 'auth/email-already-in-use') {
+      throw new CredentialInUseError();
+    }
+    throw e;
+  }
+}
+
+// Link a fresh Apple credential to the current (anonymous) user.
+export async function linkWithApple(): Promise<UserCredential> {
+  const u = auth.currentUser;
+  if (!u) throw new Error('You must be signed in.');
+  try {
+    const appleCred = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+    });
+    if (!appleCred.identityToken) {
+      throw new Error('Apple did not return an identity token.');
+    }
+    const provider = new OAuthProvider('apple.com');
+    const credential = provider.credential({ idToken: appleCred.identityToken });
+    return await linkWithCredential(u, credential);
+  } catch (err: any) {
+    if (err?.code === 'ERR_REQUEST_CANCELED') throw new SocialAuthCancelled();
+    if (err?.code === 'auth/credential-already-in-use' || err?.code === 'auth/email-already-in-use') {
+      throw new CredentialInUseError();
+    }
     throw err;
   }
 }

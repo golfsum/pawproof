@@ -127,8 +127,9 @@ function RootNav() {
           }
           return; // don't also paywall on the very first run
         }
-        // Returning free users: occasional start-up paywall.
-        if (!profile.isPremium && (await shouldShowStartupPaywall(openCount))) {
+        // Returning free users: occasional start-up paywall. Skip guests —
+        // they should be nudged to create a (free) account first, not to buy.
+        if (!profile.isPremium && !user.isAnonymous && (await shouldShowStartupPaywall(openCount))) {
           router.push('/paywall');
         }
       } catch (e) {
@@ -189,6 +190,7 @@ function RootNav() {
         <Stack.Screen name="pet/care/[id]" options={{ title: 'Care instructions', presentation: 'modal' }} />
         <Stack.Screen name="settings/notifications" options={{ title: 'Notifications' }} />
         <Stack.Screen name="settings/delete-account" options={{ title: 'Delete account' }} />
+        <Stack.Screen name="account/upgrade" options={{ title: 'Save your account', presentation: 'modal' }} />
         <Stack.Screen name="share/accept" options={{ presentation: 'modal' }} />
         <Stack.Screen name="share/manage" options={{ title: 'Manage people' }} />
         <Stack.Screen name="routines/[petId]" options={{ title: 'Routines' }} />

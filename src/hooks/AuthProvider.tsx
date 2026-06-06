@@ -3,7 +3,11 @@ import { AppState } from 'react-native';
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  onIdTokenChanged,
   signInWithEmailAndPassword,
+  signInAnonymously,
+  EmailAuthProvider,
+  linkWithCredential,
   signOut as fbSignOut,
   User,
 } from 'firebase/auth';
@@ -17,6 +21,9 @@ import {
 import {
   signInWithGoogle as nativeSignInWithGoogle,
   signInWithApple as nativeSignInWithApple,
+  linkWithGoogle as nativeLinkGoogle,
+  linkWithApple as nativeLinkApple,
+  CredentialInUseError,
 } from '@/lib/socialAuth';
 import {
   configurePurchases,
@@ -37,6 +44,18 @@ interface AuthContextValue {
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
+  /** True when the current session is an anonymous "guest" account. */
+  isGuest: boolean;
+  /** Start a no-account guest session (Firebase anonymous auth). */
+  continueAsGuest: () => Promise<void>;
+  /**
+   * Convert (link) the current guest account to a permanent one, KEEPING the
+   * same uid and all data. Throw CredentialInUseError if the credential is
+   * already attached to another account.
+   */
+  linkEmailPassword: (email: string, password: string) => Promise<void>;
+  linkGoogle: () => Promise<void>;
+  linkApple: () => Promise<void>;
   /**
    * Mark onboarding complete. Optimistically flips the local profile flag so
    * the root nav guard doesn't bounce the user back to onboarding while the
@@ -70,6 +89,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // entitlementPremium stuck at null and gated paying users — the
   // "subscribed but can't add a 3rd pet" bug).
   const [purchasesReady, setPurchasesReady] = useState(false);
+  // Bumped on token changes (e.g. linking a guest account to a real one, which
+  // mutates the user in place without firing onAuthStateChanged). Forces the
+  // context value to recompute isGuest etc.
+  const [authTick, setAuthTick] = useState(0);
 
   // Effective profile: RevenueCat entitlement is the source of truth for
   // isPremium when billing is configured; otherwise use the Firestore flag
@@ -107,7 +130,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setPurchasesReady(false);
       }
     });
-    return unsub;
+    // Linking a guest → real account mutates the current user without firing
+    // onAuthStateChanged; onIdTokenChanged does fire, so use it to refresh.
+    const unsubToken = onIdTokenChanged(auth, () => setAuthTick(t => t + 1));
+    return () => {
+      unsub();
+      unsubToken();
+    };
   }, []);
 
   useEffect(() => {
@@ -179,6 +208,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signOut: async () => {
         await fbSignOut(auth);
       },
+      isGuest: !!user?.isAnonymous,
+      continueAsGuest: async () => {
+        await signInAnonymously(auth);
+      },
+      linkEmailPassword: async (email, password) => {
+        const u = auth.currentUser;
+        if (!u) throw new Error('You must be signed in.');
+        const credential = EmailAuthProvider.credential(email.trim(), password);
+        try {
+          const res = await linkWithCredential(u, credential);
+          await ensureUserProfile(res.user.uid, res.user.email);
+        } catch (e: any) {
+          if (
+            e?.code === 'auth/email-already-in-use' ||
+            e?.code === 'auth/credential-already-in-use'
+          ) {
+            throw new CredentialInUseError();
+          }
+          throw e;
+        }
+      },
+      linkGoogle: async () => {
+        const res = await nativeLinkGoogle();
+        await ensureUserProfile(res.user.uid, res.user.email);
+      },
+      linkApple: async () => {
+        const res = await nativeLinkApple();
+        await ensureUserProfile(res.user.uid, res.user.email);
+      },
       completeOnboarding: (interests?: string[]) => {
         // Optimistic local flip so the guard sees onboardingCompleted=true
         // immediately (no flash back to the wizard).
@@ -190,7 +248,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       },
     }),
-    [user, profile, initializing],
+    // authTick: rebuild after a token change so isGuest reflects a just-linked
+    // (no-longer-anonymous) user even though the User object is mutated in place.
+    [user, profile, initializing, authTick],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

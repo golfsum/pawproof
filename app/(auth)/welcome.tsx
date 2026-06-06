@@ -10,10 +10,12 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { PrimaryButton } from '@/components/PrimaryButton';
+import { useAuth } from '@/hooks/AuthProvider';
 import { colors, fonts, radius, spacing, typography } from '@/theme';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -55,8 +57,22 @@ const SLIDES: Slide[] = [
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const { continueAsGuest } = useAuth();
   const [index, setIndex] = useState(0);
+  const [guestBusy, setGuestBusy] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+
+  const startGuest = async () => {
+    if (guestBusy) return;
+    setGuestBusy(true);
+    try {
+      // After anonymous sign-in the root nav routes into onboarding/tabs.
+      await continueAsGuest();
+    } catch (e: any) {
+      setGuestBusy(false);
+      Alert.alert('Could not continue', e?.message ?? 'Please try again.');
+    }
+  };
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const i = Math.round(e.nativeEvent.contentOffset.x / SCREEN_W);
@@ -127,6 +143,11 @@ export default function WelcomeScreen() {
             Already have an account? <Text style={styles.signInLink}>Sign in</Text>
           </Text>
         </Pressable>
+        <Pressable onPress={startGuest} hitSlop={8} disabled={guestBusy} style={styles.guestRow}>
+          <Text style={styles.guestText}>
+            {guestBusy ? 'Setting up…' : 'Just exploring? Try it without an account'}
+          </Text>
+        </Pressable>
       </View>
     </Screen>
   );
@@ -183,7 +204,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
     gap: spacing.sm,
   },
-  signInRow: { alignItems: 'center', padding: spacing.sm },
+  signInRow: { alignItems: 'center', paddingTop: spacing.sm },
   signInText: { fontSize: 14, color: colors.textMuted },
   signInLink: { color: colors.primary, fontFamily: fonts.body.semibold },
+  guestRow: { alignItems: 'center', paddingVertical: spacing.xs },
+  guestText: { fontSize: 13, color: colors.textFaint, fontFamily: fonts.body.semibold },
 });

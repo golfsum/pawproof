@@ -11,7 +11,7 @@ import { colors, radius, spacing, typography } from '@/theme';
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, isGuest } = useAuth();
   const { pets, documents } = useData();
   const [reportOpen, setReportOpen] = useState(false);
 
@@ -20,6 +20,27 @@ export default function SettingsScreen() {
   const authProvider = authProviderInfo(user?.providerData?.map(p => p.providerId));
 
   const handleSignOut = () => {
+    if (isGuest) {
+      // A guest has no way back in — leaving discards their data. Steer them
+      // to create an account first.
+      Alert.alert(
+        'Leave guest session?',
+        'You haven’t created an account yet, so your pets and records will be lost. Create a free account to keep them.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Create account', onPress: () => router.push('/account/upgrade' as never) },
+          {
+            text: 'Leave anyway',
+            style: 'destructive',
+            onPress: async () => {
+              await signOut();
+              router.replace('/(auth)/welcome' as never);
+            },
+          },
+        ],
+      );
+      return;
+    }
     Alert.alert('Sign out?', 'You can sign back in anytime.', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -45,11 +66,22 @@ export default function SettingsScreen() {
             <Ionicons name="person-outline" size={22} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={typography.bodyStrong}>{profile?.email ?? user?.email ?? 'You'}</Text>
-            <View style={styles.providerRow}>
-              <Ionicons name={authProvider.icon} size={12} color={colors.textMuted} />
-              <Text style={typography.caption}>Signed in with {authProvider.label}</Text>
-            </View>
+            <Text style={typography.bodyStrong}>
+              {isGuest ? 'Guest' : profile?.email ?? user?.email ?? 'You'}
+            </Text>
+            {isGuest ? (
+              <View style={styles.providerRow}>
+                <Ionicons name="cloud-offline-outline" size={12} color={colors.warning} />
+                <Text style={[typography.caption, { color: colors.warning }]}>
+                  Not saved yet
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.providerRow}>
+                <Ionicons name={authProvider.icon} size={12} color={colors.textMuted} />
+                <Text style={typography.caption}>Signed in with {authProvider.label}</Text>
+              </View>
+            )}
             <Text style={[typography.caption]}>{pets.length} pets · {documents.length} documents</Text>
           </View>
           {profile?.isPremium ? (
@@ -59,6 +91,15 @@ export default function SettingsScreen() {
             </View>
           ) : null}
         </View>
+
+        {isGuest ? (
+          <Row
+            icon="cloud-upload-outline"
+            title="Create free account"
+            subtitle="Save & sync your pets and records across devices"
+            onPress={() => router.push('/account/upgrade' as never)}
+          />
+        ) : null}
 
         <Row
           icon="sparkles-outline"
