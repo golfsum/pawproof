@@ -20,7 +20,7 @@ import { useAuth } from '@/hooks/AuthProvider';
 import { useData } from '@/hooks/useData';
 import { useGate } from '@/hooks/useGate';
 import { colors, radius, spacing, typography } from '@/theme';
-import { isOverdue, daysUntil, toDate } from '@/utils/dates';
+import { isOverdue, daysUntil, toDate, fmtRelative, fmtDay } from '@/utils/dates';
 import { computeNextDueDate } from '@/utils/recurrence';
 import { JOURNAL_META } from '@/utils/petIcon';
 import { createEntry, updateReminder } from '@/lib/firestore';
@@ -446,8 +446,12 @@ export default function HomeScreen() {
                           {(() => {
                             const dueAt = toDate(r.dueDate);
                             if (!dueAt) return isOverdueItem ? 'Overdue' : 'Due today';
+                            // Overdue items show the ACTUAL due date (e.g.
+                            // "Mar 14, 2024" / "Yesterday, 9:00 AM"), not just a
+                            // weekday — otherwise an item that lapsed months ago
+                            // reads as if it's due today.
                             return isOverdueItem
-                              ? `Overdue · ${format(dueAt, 'EEE h:mm a')}`
+                              ? `Overdue · ${fmtRelative(dueAt)}`
                               : `Due today · ${format(dueAt, 'h:mm a')}`;
                           })()}
                         </Text>
@@ -486,7 +490,9 @@ export default function HomeScreen() {
                       <Text style={styles.todaySub} numberOfLines={1}>
                         {pet?.name ?? ''}
                         {pet?.name ? ' · ' : ''}
-                        {expired ? 'Expired' : 'Expires today'}
+                        {expired
+                          ? (v.expirationDate ? `Expired · ${fmtDay(v.expirationDate)}` : 'Expired')
+                          : 'Expires today'}
                       </Text>
                     </View>
                   </Pressable>
