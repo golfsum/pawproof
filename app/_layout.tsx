@@ -67,7 +67,12 @@ function RootNav() {
     // wizard the instant it's pushed.
     const inPaywall = segments[0] === 'paywall';
     if (!user && !inAuthGroup) {
-      router.replace('/(auth)/sign-in');
+      // Land first-time / signed-out users on the welcome carousel (value
+      // before the login wall), not straight on sign-in. Welcome has a
+      // prominent "Sign in" link for returning users.
+      // Cast: typed-routes types regenerate on the next expo start/build;
+      // the welcome route is real (app/(auth)/welcome.tsx).
+      router.replace('/(auth)/welcome' as never);
       return;
     }
     if (user && inAuthGroup) {
