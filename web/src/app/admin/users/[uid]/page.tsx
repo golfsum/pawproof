@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { sendPasswordResetEmail } from "firebase/auth";
 import { getIdToken } from "@/lib/auth-context";
+import { requireAuth } from "@/lib/firebase";
 import { fmtDate, fmtDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -32,9 +34,11 @@ interface UserDetail {
 
 export default function AdminUserDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const uid = String(params?.uid ?? "");
   const [data, setData] = useState<UserDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -76,6 +80,52 @@ export default function AdminUserDetailPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update.");
     } finally {
+      setBusy(false);
+    }
+  };
+
+  const sendPasswordReset = async () => {
+    if (!data?.email) {
+      setError("This account has no email (likely Apple private-relay or social-only).");
+      return;
+    }
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      // Uses Firebase's built-in reset email — no custom mail service needed.
+      await sendPasswordResetEmail(requireAuth(), data.email);
+      setNotice(`Password reset email sent to ${data.email}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not send reset email.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteUser = async () => {
+    if (!data) return;
+    const label = data.email ?? data.id;
+    if (!window.confirm(`Permanently delete ${label} and ALL their data? This cannot be undone.`)) {
+      return;
+    }
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+      const res = await fetch(`/api/admin/users/${uid}`, {
+        method: "DELETE",
+        headers: { authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "Could not delete user.");
+      }
+      router.push("/admin/users");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete user.");
       setBusy(false);
     }
   };
@@ -124,7 +174,20 @@ export default function AdminUserDetailPage() {
               <Button variant="outline" size="sm" onClick={togglePremium} disabled={busy}>
                 {data.isPremium ? "Revoke Plus" : "Grant Plus"}
               </Button>
+              <Button variant="outline" size="sm" onClick={sendPasswordReset} disabled={busy || !data.email}>
+                Send password reset
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={deleteUser}
+                disabled={busy}
+                className="border-danger text-danger hover:bg-danger-soft"
+              >
+                Delete user
+              </Button>
             </div>
+            {notice ? <p className="mt-3 text-sm text-primary">{notice}</p> : null}
           </header>
 
           <div className="mt-6 grid gap-3 sm:grid-cols-3">

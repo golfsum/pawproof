@@ -113,3 +113,60 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ uid: stri
   }
   return NextResponse.json({ ok: true });
 }
+
+// Permanently delete a user: their Firestore data, then the Auth account.
+export async function DELETE(req: NextRequest, ctx: { params: Promise<{ uid: string }> }) {
+  const guard = await requireAdmin(req);
+  if (!guard.ok) return guard.response;
+  const { uid } = await ctx.params;
+
+  // Don't let an admin delete their own account from here by accident.
+  if (guard.uid === uid) {
+    return NextResponse.json(
+      { error: "You can't delete your own admin account here." },
+      { status: 400 },
+    );
+  }
+
+  const db = adminDb();
+  const userDoc = db.collection("users").doc(uid);
+  const subcollections = [
+    "pets",
+    "vaccines",
+    "documents",
+    "reminders",
+    "journalEntries",
+    "medications",
+    "weights",
+    "receipts",
+  ];
+  try {
+    for (const name of subcollections) {
+      await deleteCollection(userDoc.collection(name));
+    }
+    // Revoke any pet shares this user owns.
+    const shares = await db.collection("pet_shares").where("ownerUid", "==", uid).get();
+    await Promise.all(shares.docs.map((d) => d.ref.delete()));
+    // Drop the profile doc, then the auth user itself.
+    await userDoc.delete();
+    await adminAuth().deleteUser(uid);
+  } catch (e) {
+    console.error("[admin] delete user failed", e);
+    return NextResponse.json({ error: "Could not delete user." }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true });
+}
+
+// Delete every doc in a collection in batches of 400 (under the 500 write cap).
+async function deleteCollection(
+  col: FirebaseFirestore.CollectionReference,
+): Promise<void> {
+  while (true) {
+    const snap = await col.limit(400).get();
+    if (snap.empty) break;
+    const batch = col.firestore.batch();
+    snap.docs.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+    if (snap.size < 400) break;
+  }
+}

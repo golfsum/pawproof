@@ -47,6 +47,16 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+// App Store / Play review accounts that always get Plus, regardless of
+// RevenueCat. Reviewers can't make real sandbox purchases reliably, so we
+// guarantee full-feature access for these specific demo logins. Compared
+// lower-cased; only grants premium (no other privileges).
+const REVIEW_EMAILS = ['apple_test@pawproof.app'];
+
+function isReviewAccount(email: string | null | undefined): boolean {
+  return !!email && REVIEW_EMAILS.includes(email.toLowerCase());
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [rawProfile, setRawProfile] = useState<UserProfile | null>(null);
@@ -59,7 +69,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // isPremium when billing is configured; otherwise use the Firestore flag
   // (keeps the dev toggle + web admin grants working before billing exists).
   const profile: UserProfile | null = rawProfile
-    ? { ...rawProfile, isPremium: entitlementPremium ?? rawProfile.isPremium }
+    ? {
+        ...rawProfile,
+        isPremium: isReviewAccount(user?.email)
+          ? true
+          : entitlementPremium ?? rawProfile.isPremium,
+      }
     : rawProfile;
 
   useEffect(() => {
