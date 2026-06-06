@@ -92,8 +92,9 @@ export default function WelcomeScreen() {
   return (
     <Screen edges={['top', 'bottom']}>
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.push('/(auth)/sign-up')} hitSlop={8}>
-          <Text style={styles.skip}>Skip</Text>
+        {/* Skip the intro and jump straight into the app as a guest. */}
+        <Pressable onPress={startGuest} hitSlop={8} disabled={guestBusy}>
+          <Text style={styles.skip}>{guestBusy ? 'Setting up…' : 'Skip'}</Text>
         </Pressable>
       </View>
 

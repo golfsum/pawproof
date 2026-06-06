@@ -5,6 +5,7 @@ import { Screen } from '@/components/Screen';
 import { FormField } from '@/components/FormField';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { SocialAuthButtons } from '@/components/SocialAuthButtons';
+import { GuestContinueLink } from '@/components/GuestContinueLink';
 import { useAuth } from '@/hooks/AuthProvider';
 import { colors, spacing, typography } from '@/theme';
 
@@ -75,6 +76,8 @@ export default function SignInScreen() {
             </Pressable>
           </Link>
         </View>
+
+        <GuestContinueLink />
       </ScrollView>
     </Screen>
   );
