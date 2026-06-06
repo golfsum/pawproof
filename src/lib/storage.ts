@@ -1,4 +1,4 @@
-import { ref, deleteObject } from 'firebase/storage';
+import { ref, deleteObject, listAll, type StorageReference } from 'firebase/storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { auth, storage } from './firebase';
@@ -162,6 +162,21 @@ export async function uploadCompressedPhoto(uid: string, localUri: string, folde
 
 export async function uriToBase64(uri: string): Promise<string> {
   return await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+}
+
+/**
+ * Recursively delete every Storage object under users/{uid} — pet photos,
+ * scanned documents, etc. Used by account deletion so nothing is left behind.
+ * Best-effort per object: a single failed delete won't abort the whole wipe.
+ */
+export async function deleteAllUserFiles(uid: string): Promise<void> {
+  await deleteFolderRecursive(ref(storage, `users/${uid}`));
+}
+
+async function deleteFolderRecursive(folderRef: StorageReference): Promise<void> {
+  const res = await listAll(folderRef);
+  await Promise.all(res.items.map(item => deleteObject(item).catch(() => {})));
+  await Promise.all(res.prefixes.map(prefix => deleteFolderRecursive(prefix)));
 }
 
 export async function deleteUploadedFile(downloadUrl: string): Promise<void> {

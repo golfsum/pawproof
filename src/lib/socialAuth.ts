@@ -4,6 +4,7 @@ import {
   GoogleAuthProvider,
   OAuthProvider,
   signInWithCredential,
+  reauthenticateWithCredential,
   UserCredential,
 } from 'firebase/auth';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -87,6 +88,44 @@ export async function signInWithGoogle(): Promise<UserCredential> {
     if (err?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
       throw new Error('Google Play Services not available.');
     }
+    throw err;
+  }
+}
+
+// Reauthenticate the current user with a fresh Google credential. Firebase
+// requires a recent login before sensitive ops like account deletion.
+export async function reauthWithGoogle(): Promise<void> {
+  ensureGoogleConfigured();
+  const u = auth.currentUser;
+  if (!u) throw new Error('You must be signed in.');
+  await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+  const response: any = await GoogleSignin.signIn();
+  if (response?.type === 'cancelled') throw new SocialAuthCancelled();
+  const idToken: string | undefined = response?.data?.idToken ?? response?.idToken;
+  if (!idToken) throw new Error('Google did not return an ID token.');
+  const credential = GoogleAuthProvider.credential(idToken);
+  await reauthenticateWithCredential(u, credential);
+}
+
+// Reauthenticate the current user with a fresh Apple credential.
+export async function reauthWithApple(): Promise<void> {
+  const u = auth.currentUser;
+  if (!u) throw new Error('You must be signed in.');
+  try {
+    const appleCred = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+    });
+    if (!appleCred.identityToken) {
+      throw new Error('Apple did not return an identity token.');
+    }
+    const provider = new OAuthProvider('apple.com');
+    const firebaseCredential = provider.credential({ idToken: appleCred.identityToken });
+    await reauthenticateWithCredential(u, firebaseCredential);
+  } catch (err: any) {
+    if (err?.code === 'ERR_REQUEST_CANCELED') throw new SocialAuthCancelled();
     throw err;
   }
 }

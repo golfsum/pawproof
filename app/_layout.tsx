@@ -183,6 +183,7 @@ function RootNav() {
         <Stack.Screen name="pet/share/[id]" options={{ presentation: 'modal' }} />
         <Stack.Screen name="pet/care/[id]" options={{ title: 'Care instructions', presentation: 'modal' }} />
         <Stack.Screen name="settings/notifications" options={{ title: 'Notifications' }} />
+        <Stack.Screen name="settings/delete-account" options={{ title: 'Delete account' }} />
         <Stack.Screen name="share/accept" options={{ presentation: 'modal' }} />
         <Stack.Screen name="share/manage" options={{ title: 'Manage people' }} />
         <Stack.Screen name="routines/[petId]" options={{ title: 'Routines' }} />

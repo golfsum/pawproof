@@ -199,7 +199,7 @@ export default function DataExportScreen() {
                       await deleteAllUserData(user.uid);
                       Alert.alert(
                         'Data deleted',
-                        'Your records are gone. You\'ll be signed out now. To remove the account itself, email support@pawproof.app.',
+                        'Your records are gone. You\'ll be signed out now. To remove the account itself too, use Settings → Delete account.',
                         [
                           {
                             text: 'OK',

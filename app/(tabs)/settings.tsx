@@ -159,8 +159,16 @@ export default function SettingsScreen() {
         <Row
           icon="archive-outline"
           title="Your data"
-          subtitle="Export backups, records PDFs, or delete your data"
+          subtitle="Export backups or records PDFs"
           onPress={() => router.push('/data/export')}
+        />
+
+        <Row
+          icon="trash-outline"
+          title="Delete account"
+          subtitle="Permanently erase your account and all data"
+          danger
+          onPress={() => router.push('/settings/delete-account')}
         />
 
         <Row
@@ -200,21 +208,22 @@ export default function SettingsScreen() {
 }
 
 function Row({
-  icon, title, subtitle, onPress, trailing,
+  icon, title, subtitle, onPress, trailing, danger,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   subtitle?: string;
   onPress: () => void;
   trailing?: React.ReactNode;
+  danger?: boolean;
 }) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && { opacity: 0.9 }]}>
-      <View style={styles.rowIcon}>
-        <Ionicons name={icon} size={20} color={colors.primary} />
+      <View style={[styles.rowIcon, danger && styles.rowIconDanger]}>
+        <Ionicons name={icon} size={20} color={danger ? colors.danger : colors.primary} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={typography.bodyStrong}>{title}</Text>
+        <Text style={[typography.bodyStrong, danger && { color: colors.danger }]}>{title}</Text>
         {subtitle ? <Text style={typography.caption}>{subtitle}</Text> : null}
       </View>
       {trailing ? <View style={{ marginRight: 4 }}>{trailing}</View> : null}
@@ -270,6 +279,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primarySoft,
     alignItems: 'center', justifyContent: 'center',
   },
+  rowIconDanger: { backgroundColor: colors.dangerSoft },
   plusBadge: {
     backgroundColor: colors.primary,
     borderRadius: radius.pill,
