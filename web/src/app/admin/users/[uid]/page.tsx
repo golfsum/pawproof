@@ -22,8 +22,44 @@ interface UserDetail {
     id: string;
     name: string;
     species: string;
-    breed?: string;
-    birthday?: string;
+    breed?: string | null;
+    birthday?: string | null;
+    createdAt: string | null;
+    createdBy: string;
+  }>;
+  vaccines: Array<{
+    id: string;
+    vaccineName: string;
+    petName: string | null;
+    dateGiven: string | null;
+    createdAt: string | null;
+    createdBy: string;
+  }>;
+  documents: Array<{
+    id: string;
+    title: string;
+    kind: string | null;
+    petName: string | null;
+    createdAt: string | null;
+    createdBy: string;
+  }>;
+  reminders: Array<{
+    id: string;
+    title: string;
+    type: string | null;
+    petName: string | null;
+    dueDate: string | null;
+    createdAt: string | null;
+    createdBy: string;
+  }>;
+  entries: Array<{
+    id: string;
+    type: string;
+    title: string;
+    petName: string | null;
+    timestamp: string | null;
+    createdAt: string | null;
+    createdBy: string;
   }>;
   ticketCount: number;
   vaccineCount: number;
@@ -211,27 +247,86 @@ export default function AdminUserDetailPage() {
             </dl>
           </section>
 
-          <section className="mt-8">
-            <h2 className="font-semibold mb-3">Pets ({data.pets.length})</h2>
-            {data.pets.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border-strong bg-surface p-6 text-center text-sm text-muted">
-                This user hasn&apos;t added any pets.
-              </div>
-            ) : (
-              <ul className="rounded-2xl border border-border bg-surface divide-y divide-divider">
-                {data.pets.map((pet) => (
-                  <li key={pet.id} className="px-4 py-3">
-                    <div className="font-semibold">{pet.name}</div>
-                    <div className="text-xs text-muted capitalize">
-                      {pet.species}
-                      {pet.breed ? ` · ${pet.breed}` : ""}
-                      {pet.birthday ? ` · born ${fmtDate(pet.birthday)}` : ""}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          <RecordSection
+            title="Pets"
+            count={data.pets.length}
+            empty="This user hasn't added any pets."
+            rows={data.pets.map((p) => ({
+              id: p.id,
+              primary: p.name,
+              secondary: [
+                p.species,
+                p.breed ?? undefined,
+                p.birthday ? `born ${fmtDate(p.birthday)}` : undefined,
+              ]
+                .filter(Boolean)
+                .join(" · "),
+              createdAt: p.createdAt,
+              createdBy: p.createdBy,
+            }))}
+          />
+
+          <RecordSection
+            title="Vaccines"
+            count={data.vaccineCount}
+            empty="No vaccine records."
+            rows={data.vaccines.map((v) => ({
+              id: v.id,
+              primary: v.vaccineName,
+              secondary: [v.petName ?? undefined, v.dateGiven ? `given ${fmtDate(v.dateGiven)}` : undefined]
+                .filter(Boolean)
+                .join(" · "),
+              createdAt: v.createdAt,
+              createdBy: v.createdBy,
+            }))}
+          />
+
+          <RecordSection
+            title="Documents"
+            count={data.documentCount}
+            empty="No documents uploaded."
+            rows={data.documents.map((d) => ({
+              id: d.id,
+              primary: d.title,
+              secondary: [d.kind ?? undefined, d.petName ?? undefined].filter(Boolean).join(" · "),
+              createdAt: d.createdAt,
+              createdBy: d.createdBy,
+            }))}
+          />
+
+          <RecordSection
+            title="Reminders"
+            count={data.reminderCount}
+            empty="No reminders."
+            rows={data.reminders.map((r) => ({
+              id: r.id,
+              primary: r.title,
+              secondary: [
+                r.type ?? undefined,
+                r.petName ?? undefined,
+                r.dueDate ? `due ${fmtDateTime(r.dueDate)}` : undefined,
+              ]
+                .filter(Boolean)
+                .join(" · "),
+              createdAt: r.createdAt,
+              createdBy: r.createdBy,
+            }))}
+          />
+
+          <RecordSection
+            title="Journal entries"
+            count={data.entryCount}
+            empty="No journal entries."
+            rows={data.entries.map((e) => ({
+              id: e.id,
+              primary: e.title || e.type,
+              secondary: [e.type, e.petName ?? undefined, e.timestamp ? fmtDateTime(e.timestamp) : undefined]
+                .filter(Boolean)
+                .join(" · "),
+              createdAt: e.createdAt,
+              createdBy: e.createdBy,
+            }))}
+          />
 
           <section className="mt-8">
             <h2 className="font-semibold mb-3">Tickets ({data.ticketCount})</h2>
@@ -263,5 +358,70 @@ function Row({ label, value }: { label: string; value: string }) {
       <dt className="w-40 text-muted shrink-0">{label}</dt>
       <dd className="break-all">{value}</dd>
     </div>
+  );
+}
+
+interface RecordRow {
+  id: string;
+  primary: string;
+  secondary?: string;
+  createdAt: string | null;
+  createdBy: string;
+}
+
+function RecordSection({
+  title,
+  count,
+  empty,
+  rows,
+}: {
+  title: string;
+  count: number;
+  empty: string;
+  rows: RecordRow[];
+}) {
+  return (
+    <section className="mt-8">
+      <h2 className="font-semibold mb-3">
+        {title} ({count})
+      </h2>
+      {rows.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border-strong bg-surface p-6 text-center text-sm text-muted">
+          {empty}
+        </div>
+      ) : (
+        <ul className="rounded-2xl border border-border bg-surface divide-y divide-divider">
+          {rows.map((r) => (
+            <li key={r.id} className="px-4 py-3 flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="font-semibold truncate">{r.primary}</div>
+                {r.secondary ? (
+                  <div className="text-xs text-muted capitalize truncate">{r.secondary}</div>
+                ) : null}
+              </div>
+              <div className="text-right shrink-0">
+                <div className="text-xs text-muted">
+                  {r.createdAt ? fmtDateTime(r.createdAt) : "—"}
+                </div>
+                <span
+                  className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                    r.createdBy.startsWith("Caregiver")
+                      ? "bg-warning-soft text-warning"
+                      : "bg-surface-elevated text-muted"
+                  }`}
+                >
+                  {r.createdBy}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {count > rows.length ? (
+        <p className="mt-2 text-xs text-muted">
+          Showing {rows.length} of {count} (most recent).
+        </p>
+      ) : null}
+    </section>
   );
 }

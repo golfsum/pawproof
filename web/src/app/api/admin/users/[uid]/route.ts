@@ -47,13 +47,103 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ uid: string
       db.collection("support_issues").where("uid", "==", uid).count().get(),
     ]);
 
-  const petsSnap = await db
-    .collection("users")
-    .doc(uid)
-    .collection("pets")
-    .orderBy("createdAt", "asc")
-    .limit(20)
-    .get();
+  const userRef = db.collection("users").doc(uid);
+  // Pull the actual records (capped) so admins can inspect a user's data.
+  // Ordered newest-first by createdAt; docs missing createdAt are still
+  // returned via a fallback sort below.
+  const [petsSnap, vaccinesSnap, documentsSnap, remindersSnap, entriesSnap] =
+    await Promise.all([
+      userRef.collection("pets").orderBy("createdAt", "asc").limit(50).get(),
+      userRef.collection("vaccines").limit(100).get(),
+      userRef.collection("documents").limit(100).get(),
+      userRef.collection("reminders").limit(100).get(),
+      userRef.collection("journalEntries").orderBy("timestamp", "desc").limit(100).get(),
+    ]);
+
+  // Pet id → name map for labeling records by pet.
+  const petName = new Map<string, string>();
+  petsSnap.docs.forEach((d) => petName.set(d.id, (d.data().name as string) ?? ""));
+
+  // Owner vs caregiver: only journal entries carry an actor stamp. A record is
+  // "caregiver"-created when its actorUid is set and differs from the owner.
+  const actorLabel = (data: FirebaseFirestore.DocumentData): string => {
+    const actorUid = data.actorUid as string | undefined;
+    const actorName = data.actorName as string | undefined;
+    if (actorUid && actorUid !== uid) return `Caregiver${actorName ? ` (${actorName})` : ""}`;
+    return "Owner";
+  };
+
+  const byCreatedDesc = (a: { createdAt: string | null }, b: { createdAt: string | null }) =>
+    (b.createdAt ?? "").localeCompare(a.createdAt ?? "");
+
+  const pets = petsSnap.docs.map((d) => {
+    const x = d.data();
+    return {
+      id: d.id,
+      name: x.name ?? "",
+      species: x.species ?? "other",
+      breed: x.breed ?? null,
+      birthday: x.birthday ?? null,
+      createdAt: toIso(x.createdAt),
+      createdBy: actorLabel(x),
+    };
+  });
+
+  const vaccines = vaccinesSnap.docs
+    .map((d) => {
+      const x = d.data();
+      return {
+        id: d.id,
+        vaccineName: x.vaccineName ?? "Vaccine",
+        petName: petName.get(x.petId) ?? null,
+        dateGiven: x.dateGiven ?? null,
+        createdAt: toIso(x.createdAt),
+        createdBy: actorLabel(x),
+      };
+    })
+    .sort(byCreatedDesc);
+
+  const documents = documentsSnap.docs
+    .map((d) => {
+      const x = d.data();
+      return {
+        id: d.id,
+        title: x.title ?? "Document",
+        kind: x.kind ?? null,
+        petName: petName.get(x.petId) ?? null,
+        createdAt: toIso(x.createdAt),
+        createdBy: actorLabel(x),
+      };
+    })
+    .sort(byCreatedDesc);
+
+  const reminders = remindersSnap.docs
+    .map((d) => {
+      const x = d.data();
+      return {
+        id: d.id,
+        title: x.name ?? x.title ?? "Reminder",
+        type: x.category ?? x.type ?? null,
+        petName: petName.get(x.petId) ?? null,
+        dueDate: x.dueDate ?? null,
+        createdAt: toIso(x.createdAt),
+        createdBy: actorLabel(x),
+      };
+    })
+    .sort(byCreatedDesc);
+
+  const entries = entriesSnap.docs.map((d) => {
+    const x = d.data();
+    return {
+      id: d.id,
+      type: x.type ?? "note",
+      title: x.title ?? "",
+      petName: petName.get(x.petId) ?? null,
+      timestamp: toIso(x.timestamp),
+      createdAt: toIso(x.createdAt) ?? toIso(x.timestamp),
+      createdBy: actorLabel(x),
+    };
+  });
 
   return NextResponse.json({
     user: {
@@ -66,16 +156,11 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ uid: string
       createdAt: toIso(profile.createdAt) ?? authUser.metadata.creationTime ?? null,
       lastSignInAt: authUser.metadata.lastSignInTime ?? null,
       disabled: authUser.disabled,
-      pets: petsSnap.docs.map((d) => {
-        const data = d.data();
-        return {
-          id: d.id,
-          name: data.name ?? "",
-          species: data.species ?? "other",
-          breed: data.breed,
-          birthday: data.birthday,
-        };
-      }),
+      pets,
+      vaccines,
+      documents,
+      reminders,
+      entries,
       petCount: petsCount.data().count,
       vaccineCount: vaccinesCount.data().count,
       documentCount: documentsCount.data().count,
