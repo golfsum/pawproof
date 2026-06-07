@@ -61,6 +61,18 @@ interface UserDetail {
     createdAt: string | null;
     createdBy: string;
   }>;
+  shares: Array<{
+    id: string;
+    inviteeEmail: string | null;
+    inviteeUid: string | null;
+    petName: string | null;
+    role: string;
+    status: string;
+    createdAt: string | null;
+    acceptedAt: string | null;
+    revokedAt: string | null;
+    activityCount: number;
+  }>;
   ticketCount: number;
   vaccineCount: number;
   documentCount: number;
@@ -327,6 +339,52 @@ export default function AdminUserDetailPage() {
               createdBy: e.createdBy,
             }))}
           />
+
+          <section className="mt-8">
+            <h2 className="font-semibold mb-3">People &amp; sharing ({data.shares.length})</h2>
+            {data.shares.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border-strong bg-surface p-6 text-center text-sm text-muted">
+                This user hasn&apos;t invited anyone.
+              </div>
+            ) : (
+              <ul className="rounded-2xl border border-border bg-surface divide-y divide-divider">
+                {data.shares.map((s) => (
+                  <li key={s.id} className="px-4 py-3 flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="font-semibold truncate">{s.inviteeEmail ?? "—"}</div>
+                      <div className="text-xs text-muted truncate">
+                        {[
+                          s.petName ? `Pet: ${s.petName}` : null,
+                          s.role === "view_only" ? "View only" : "Caregiver",
+                          s.status === "accepted"
+                            ? `${s.activityCount} ${s.activityCount === 1 ? "log" : "logs"}`
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </div>
+                      <div className="text-[11px] text-muted mt-0.5">
+                        Invited {s.createdAt ? fmtDateTime(s.createdAt) : "—"}
+                        {s.acceptedAt ? ` · Accepted ${fmtDateTime(s.acceptedAt)}` : ""}
+                        {s.revokedAt ? ` · Revoked ${fmtDateTime(s.revokedAt)}` : ""}
+                      </div>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                        s.status === "accepted"
+                          ? "bg-primary-soft text-primary-dark"
+                          : s.status === "revoked"
+                          ? "bg-danger-soft text-danger"
+                          : "bg-surface-elevated text-muted"
+                      }`}
+                    >
+                      {s.status}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
           <section className="mt-8">
             <h2 className="font-semibold mb-3">Tickets ({data.ticketCount})</h2>

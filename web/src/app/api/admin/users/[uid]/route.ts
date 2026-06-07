@@ -145,6 +145,42 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ uid: string
     };
   });
 
+  // Caregiver invites this user has sent (they're the owner). Includes role,
+  // status, accept time, and how much each accepted caregiver has logged.
+  const sharesSnap = await db.collection("pet_shares").where("ownerUid", "==", uid).get();
+  const inviteeUids = Array.from(
+    new Set(
+      sharesSnap.docs
+        .map((d) => d.data().inviteeUid as string | null | undefined)
+        .filter((x): x is string => !!x),
+    ),
+  );
+  // Count each accepted caregiver's logged journal entries (actorUid stamp).
+  const activityByUid = new Map<string, number>();
+  await Promise.all(
+    inviteeUids.map(async (iu) => {
+      const c = await userRef.collection("journalEntries").where("actorUid", "==", iu).count().get();
+      activityByUid.set(iu, c.data().count);
+    }),
+  );
+  const shares = sharesSnap.docs
+    .map((d) => {
+      const x = d.data();
+      return {
+        id: d.id,
+        inviteeEmail: (x.inviteeEmail as string) ?? null,
+        inviteeUid: (x.inviteeUid as string) ?? null,
+        petName: (x.petName as string) ?? petName.get(x.petId) ?? null,
+        role: (x.role as string) ?? "caregiver",
+        status: (x.status as string) ?? "pending",
+        createdAt: toIso(x.createdAt),
+        acceptedAt: toIso(x.acceptedAt),
+        revokedAt: toIso(x.revokedAt),
+        activityCount: x.inviteeUid ? activityByUid.get(x.inviteeUid as string) ?? 0 : 0,
+      };
+    })
+    .sort(byCreatedDesc);
+
   return NextResponse.json({
     user: {
       id: uid,
@@ -161,6 +197,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ uid: string
       documents,
       reminders,
       entries,
+      shares,
       petCount: petsCount.data().count,
       vaccineCount: vaccinesCount.data().count,
       documentCount: documentsCount.data().count,
