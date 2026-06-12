@@ -1,0 +1,37 @@
+# Controls what gets uploaded to EAS Build. NOTE: when this file exists it
+# REPLACES .gitignore for EAS, so the standard ignores are repeated here, plus
+# things the iOS app build never needs (keeps the upload small + fast).
+
+# Dependencies & build artifacts (reinstalled/regenerated on the build server)
+node_modules/
+.expo/
+dist/
+web-build/
+.next/
+out/
+
+# Native dirs (managed workflow regenerates these during prebuild)
+ios/
+android/
+
+# The Next.js marketing site + dashboard is NOT part of the mobile build
+web/
+
+# Env / secrets (the build uses app.json baked config + EAS dashboard env)
+.env
+.env.local
+.env.*.local
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Docs, planning, captured screenshots, misc
+*.pdf
+*.log
+.planning/
+.git/
+.DS_Store
+.idea/
+.vscode/
