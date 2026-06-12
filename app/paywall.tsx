@@ -26,8 +26,8 @@ export default function PaywallScreen() {
   const [packages, setPackages] = useState<Record<string, PurchasesPackage>>({});
   const billingReady = isPurchasesConfigured();
   // Yearly highlighted by default. We list it first in the UI so the
-  // Best Value framing is the user's anchor — monthly and lifetime feel
-  // like alternatives instead of the primary choice.
+  // Best Value framing is the user's anchor — monthly feels like the
+  // alternative instead of the primary choice.
   const [selected, setSelected] = useState<PlanId>(DEFAULT_PLAN);
 
   const plan = PLANS[selected];
@@ -183,12 +183,6 @@ export default function PaywallScreen() {
             isCurrent={currentPlanId === 'yearly'}
             highlighted
             onPress={() => setSelected('yearly')}
-          />
-          <PlanCard
-            plan={PLANS.lifetime}
-            selected={selected === 'lifetime'}
-            isCurrent={currentPlanId === 'lifetime'}
-            onPress={() => setSelected('lifetime')}
           />
         </View>
 

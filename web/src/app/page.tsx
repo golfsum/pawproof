@@ -257,9 +257,9 @@ export default function Home() {
               </ul>
             </div>
 
-            {/* Three plan tiles. Yearly tile is the visual anchor: bigger
+            {/* Two plan tiles. Yearly tile is the visual anchor: bigger
                 border, primary background, "Best value" badge. */}
-            <div className="mt-6 grid gap-4 lg:grid-cols-3 max-w-4xl">
+            <div className="mt-6 grid gap-4 lg:grid-cols-2 max-w-2xl">
               <div className="relative rounded-2xl border-2 border-primary bg-primary-soft/40 p-6 lg:order-1">
                 <span className="absolute -top-3 left-6 rounded-full bg-primary px-3 py-1 text-xs font-bold text-white uppercase tracking-wider">
                   Best value · Save 33%
@@ -295,25 +295,6 @@ export default function Home() {
                 </p>
               </div>
 
-              <div className="relative rounded-2xl border border-border bg-surface p-6 lg:order-3">
-                <span className="absolute -top-3 right-6 rounded-full bg-white border border-primary/40 px-3 py-1 text-xs font-bold text-primary-dark uppercase tracking-wider">
-                  Best for multi-pet homes
-                </span>
-                <h3 className="font-bold text-lg">Lifetime</h3>
-                <div className="mt-2 flex items-baseline gap-2">
-                  <span className="text-3xl font-bold">$89.99</span>
-                  <span className="text-sm text-muted">one-time</span>
-                </div>
-                <div className="text-sm text-muted mt-1">Pay once, keep forever</div>
-                <Link href="/sign-in?mode=signup" className="mt-6 block">
-                  <Button variant="outline" className="w-full">
-                    Get Lifetime
-                  </Button>
-                </Link>
-                <p className="mt-2 text-center text-xs text-muted">
-                  No subscription, no renewals.
-                </p>
-              </div>
             </div>
 
             {/* Free row */}

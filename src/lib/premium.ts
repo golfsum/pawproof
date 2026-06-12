@@ -98,7 +98,7 @@ export function isOcrTrialAvailable(profile: UserProfile | null): boolean {
 // you'll set up in App Store Connect / Play Console before launch.
 // Trial flag drives the "Start 7-day free trial" CTA and the small
 // "Then $X" subline.
-export type PlanId = 'monthly' | 'yearly' | 'lifetime';
+export type PlanId = 'monthly' | 'yearly';
 
 export interface Plan {
   id: PlanId;
@@ -140,17 +140,6 @@ export const PLANS: Record<PlanId, Plan> = {
     description: 'Try it month to month',
     ctaSubline: 'Then $4.99/month. Cancel anytime.',
   },
-  lifetime: {
-    id: 'lifetime',
-    productId: 'plus_lifetime_8999',
-    packageId: '$rc_lifetime',
-    label: 'Lifetime',
-    price: '$89.99 one-time',
-    trialDays: null,
-    badge: 'Best for multi-pet homes',
-    description: 'Pay once, keep forever',
-    ctaSubline: 'One-time payment. No subscription.',
-  },
 };
 
 // Default plan to highlight on the paywall. Yearly because it pushes
@@ -166,7 +155,7 @@ export const PAYWALL_COPY = {
   pitch:
     'PawProof Plus reads vaccine names, dates, clinics, and expiration info so you don\'t have to enter everything by hand.',
   trialCta: 'Start 7-day free trial',
-  buyCta: 'Get Lifetime',
+  buyCta: 'Unlock PawProof Plus',
   secondaryCta: 'Continue with Free',
   features: [
     'Unlimited pets',

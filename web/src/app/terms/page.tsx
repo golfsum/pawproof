@@ -60,30 +60,16 @@ export default function TermsPage() {
           <h2>5. PawProof Plus (paid plans)</h2>
           <p>
             <strong>Plans.</strong> PawProof Plus is available as a
-            $4.99 monthly subscription, a $39.99 yearly subscription, or
-            a $89.99 one-time Lifetime purchase. Subscriptions are
-            billed through your Apple ID or Google Play account and
-            renew automatically until cancelled. Manage or cancel from
-            your Apple ID / Google Play settings, not from us. Lifetime
-            is a single charge with no auto-renewal.
+            $4.99 monthly subscription or a $39.99 yearly subscription.
+            Subscriptions are billed through your Apple ID or Google Play
+            account and renew automatically until cancelled. Manage or
+            cancel from your Apple ID / Google Play settings, not from us.
           </p>
           <p>
             <strong>Free trial.</strong> Both the monthly and yearly
             subscriptions include a 7-day free trial for first-time
             subscribers. The trial converts to a paid subscription
-            unless cancelled at least 24 hours before it ends. Lifetime
-            does not include a trial.
-          </p>
-          <p>
-            <strong>What &quot;Lifetime&quot; means.</strong> The Lifetime
-            purchase grants access to PawProof Plus features for the
-            lifetime of the PawProof app and service &mdash; not the
-            lifetime of the purchaser. It is a one-time payment with no
-            recurring charge, but it does not guarantee the app will be
-            available, supported, or operated indefinitely. If PawProof is
-            discontinued, sunset, or the service otherwise ends, Lifetime
-            access ends with it, and no refund is owed for a Lifetime
-            purchase made before that time.
+            unless cancelled at least 24 hours before it ends.
           </p>
           <p>
             <strong>Refunds.</strong> Refunds are handled by Apple /
