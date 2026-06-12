@@ -18,6 +18,8 @@ const NAV = [
   { href: "/contact", label: "Contact" },
 ];
 
+const APP_STORE_URL = "https://apps.apple.com/us/app/pawproof-app/id6775067128";
+
 export function SiteHeader() {
   const pathname = usePathname();
   const { user, loading } = useAuth();
@@ -44,6 +46,16 @@ export function SiteHeader() {
           ))}
         </nav>
         <div className="flex items-center gap-2">
+          <a
+            href={APP_STORE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Download PawProof on the App Store"
+            className="hidden md:inline-flex transition-transform hover:scale-[1.03]"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/app-store-badge.svg" alt="Download on the App Store" className="h-9 w-auto" />
+          </a>
           {loading ? null : user ? (
             <Link href="/dashboard">
               <Button size="sm">Open dashboard</Button>
@@ -82,6 +94,17 @@ export function SiteHeader() {
                 {n.label}
               </Link>
             ))}
+            <a
+              href={APP_STORE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Download PawProof on the App Store"
+              onClick={() => setOpen(false)}
+              className="mt-2 px-3"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/app-store-badge.svg" alt="Download on the App Store" className="h-11 w-auto" />
+            </a>
           </nav>
         </div>
       ) : null}
