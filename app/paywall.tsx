@@ -172,17 +172,17 @@ export default function PaywallScreen() {
 
         <View style={styles.planList}>
           <PlanCard
+            plan={PLANS.monthly}
+            selected={selected === 'monthly'}
+            isCurrent={currentPlanId === 'monthly'}
+            onPress={() => setSelected('monthly')}
+          />
+          <PlanCard
             plan={PLANS.yearly}
             selected={selected === 'yearly'}
             isCurrent={currentPlanId === 'yearly'}
             highlighted
             onPress={() => setSelected('yearly')}
-          />
-          <PlanCard
-            plan={PLANS.monthly}
-            selected={selected === 'monthly'}
-            isCurrent={currentPlanId === 'monthly'}
-            onPress={() => setSelected('monthly')}
           />
           <PlanCard
             plan={PLANS.lifetime}
