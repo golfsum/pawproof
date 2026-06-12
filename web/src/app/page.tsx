@@ -3,6 +3,17 @@ import { SiteHeader, SiteFooter } from "@/components/site-shell";
 import { Button } from "@/components/ui/button";
 import { PhoneFrame } from "@/components/phone-frame";
 
+// Live App Store listing.
+const APP_STORE_URL = "https://apps.apple.com/us/app/pawproof-app/id6775067128";
+
+function AppleLogo({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className={className}>
+      <path d="M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.57-.12 0-.23-.02-.3-.03-.01-.06-.04-.22-.04-.39 0-1.15.572-2.27 1.206-2.98.804-.94 2.142-1.64 3.248-1.68.03.13.05.28.05.43zm4.565 15.71c-.03.07-.463 1.58-1.518 3.12-.945 1.34-1.94 2.71-3.43 2.71-1.517 0-1.9-.88-3.63-.88-1.698 0-2.302.91-3.67.91-1.377 0-2.332-1.26-3.428-2.8-1.287-1.82-2.323-4.63-2.323-7.28 0-4.28 2.797-6.55 5.552-6.55 1.448 0 2.675.95 3.6.95.865 0 2.222-1.01 3.902-1.01.613 0 2.886.06 4.374 2.19-.13.09-2.383 1.37-2.383 4.19 0 3.26 2.854 4.42 2.955 4.45z" />
+    </svg>
+  );
+}
+
 // In-app screenshots shown in the showcase strip. Files live in
 // /public/screenshots (see README there). Alternating layout, image side
 // flips each row.
@@ -115,11 +126,12 @@ export default function Home() {
                   and invoices so you don&apos;t have to.
                 </p>
                 <div className="mt-8 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
-                  <Link href="/sign-in?mode=signup">
-                    <Button size="lg" className="w-full sm:w-auto">
-                      Get started free
+                  <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto">
+                    <Button size="lg" className="w-full sm:w-auto gap-2">
+                      <AppleLogo className="h-5 w-5" />
+                      Download on the App Store
                     </Button>
-                  </Link>
+                  </a>
                   <Link href="/#features">
                     <Button variant="ghost" size="lg" className="w-full sm:w-auto">
                       See features
@@ -127,9 +139,27 @@ export default function Home() {
                   </Link>
                 </div>
                 <p className="mt-4 text-xs text-faint">
-                  iOS app + web dashboard. Free tier covers 2 pets, 3 documents,
-                  and your first Smart Scan.
+                  Free on iPhone. Free tier covers 2 pets, 3 documents, and your
+                  first Smart Scan.
                 </p>
+
+                {/* QR — easy desktop → phone handoff. Hidden on small screens
+                    (you can't scan the screen you're holding). */}
+                <div className="mt-6 hidden lg:flex items-center gap-4">
+                  <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src="/appstore-qr.svg"
+                      alt="QR code to download PawProof on the App Store"
+                      className="h-28 w-28 rounded-xl border border-border bg-white p-2"
+                    />
+                  </a>
+                  <div className="text-sm text-muted max-w-[200px]">
+                    <div className="font-semibold text-foreground">Scan to download</div>
+                    Point your iPhone&apos;s camera at the code to open PawProof in
+                    the App Store.
+                  </div>
+                </div>
               </div>
 
               {/* Hero screenshot */}
@@ -324,14 +354,20 @@ export default function Home() {
               Your pet deserves better than a shoebox of receipts.
             </h2>
             <p className="mt-3 text-white/85 max-w-xl mx-auto">
-              Sign up free, scan your first vaccine record, and let PawProof
+              Download free, scan your first vaccine record, and let PawProof
               take it from there.
             </p>
-            <Link href="/sign-in?mode=signup" className="mt-6 inline-block">
-              <Button variant="secondary" size="lg" className="bg-white text-primary-dark hover:bg-white/90">
-                Get started free
+            <a
+              href={APP_STORE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-6 inline-block"
+            >
+              <Button variant="secondary" size="lg" className="bg-white text-primary-dark hover:bg-white/90 gap-2">
+                <AppleLogo className="h-5 w-5" />
+                Download on the App Store
               </Button>
-            </Link>
+            </a>
           </div>
         </section>
       </main>
