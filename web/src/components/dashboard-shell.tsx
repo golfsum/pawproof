@@ -53,6 +53,12 @@ export function DashboardShell({
   const pathname = usePathname();
   const { user, loading } = useAuth();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Close the mobile menu whenever the route changes.
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
 
   // Guard: unauthenticated users get bounced to sign-in.
   useEffect(() => {
@@ -148,10 +154,24 @@ export function DashboardShell({
 
       <div className="flex flex-1 flex-col">
         <header className="md:hidden flex h-14 items-center justify-between border-b border-border bg-surface px-4">
-          <Link href="/" className="flex items-center gap-2 font-bold text-sm">
-            <LogoMark className="h-7 w-7 rounded-md" />
-            PawProof {kind === "admin" ? "Admin" : ""}
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setMobileNavOpen((v) => !v)}
+              aria-label="Toggle menu"
+              aria-expanded={mobileNavOpen}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border"
+            >
+              <div className="space-y-1">
+                <span className="block h-0.5 w-4 bg-foreground" />
+                <span className="block h-0.5 w-4 bg-foreground" />
+                <span className="block h-0.5 w-4 bg-foreground" />
+              </div>
+            </button>
+            <Link href="/" className="flex items-center gap-2 font-bold text-sm">
+              <LogoMark className="h-7 w-7 rounded-md" />
+              PawProof {kind === "admin" ? "Admin" : ""}
+            </Link>
+          </div>
           <button
             onClick={() => {
               if (auth) void signOut(auth).then(() => router.replace("/"));
@@ -161,6 +181,34 @@ export function DashboardShell({
             Sign out
           </button>
         </header>
+
+        {/* Mobile nav drawer */}
+        {mobileNavOpen ? (
+          <div className="md:hidden border-b border-border bg-surface">
+            <nav className="px-3 py-3 space-y-1">
+              {nav.map((n) => {
+                const active = pathname === n.href || pathname.startsWith(n.href + "/");
+                return (
+                  <Link
+                    key={n.href}
+                    href={n.href}
+                    onClick={() => setMobileNavOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition",
+                      active
+                        ? "bg-primary-soft text-primary-dark"
+                        : "text-muted hover:bg-surface-elevated hover:text-foreground",
+                    )}
+                  >
+                    <span className="text-base w-5 text-center">{n.icon}</span>
+                    {n.label}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+        ) : null}
+
         <main className="flex-1 bg-background">{children}</main>
       </div>
     </div>
