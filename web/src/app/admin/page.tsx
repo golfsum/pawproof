@@ -18,8 +18,16 @@ interface DashboardData {
   recentTickets: SupportIssue[];
 }
 
+interface Analytics {
+  last7: number;
+  total30: number;
+  topPaths: { path: string; count: number }[];
+  series: { day: string; count: number }[];
+}
+
 export default function AdminOverviewPage() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -38,9 +46,24 @@ export default function AdminOverviewPage() {
     }
   }, []);
 
+  const loadAnalytics = useCallback(async () => {
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+      const res = await fetch("/api/admin/analytics", {
+        headers: { authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      setAnalytics(await res.json());
+    } catch {
+      /* analytics is best-effort; don't block the page */
+    }
+  }, []);
+
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadAnalytics();
+  }, [load, loadAnalytics]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 md:px-8 py-8">
@@ -71,6 +94,62 @@ export default function AdminOverviewPage() {
               tone="primary"
             />
           </div>
+
+          {analytics ? (
+            <section className="mt-10">
+              <h2 className="text-lg font-semibold mb-3">Website traffic</h2>
+              <div className="grid gap-4 lg:grid-cols-3">
+                <div className="rounded-2xl border border-border bg-surface p-5">
+                  <div className="flex gap-6">
+                    <div>
+                      <div className="text-3xl font-bold">{analytics.last7}</div>
+                      <div className="mt-1 text-sm text-muted">Page views (7d)</div>
+                    </div>
+                    <div>
+                      <div className="text-3xl font-bold">{analytics.total30}</div>
+                      <div className="mt-1 text-sm text-muted">Page views (30d)</div>
+                    </div>
+                  </div>
+                  {/* Tiny daily bar chart (last 14 days). */}
+                  <div className="mt-5 flex items-end gap-1 h-16">
+                    {analytics.series.length === 0 ? (
+                      <span className="text-xs text-faint">No views yet.</span>
+                    ) : (
+                      analytics.series.map((d) => {
+                        const max = Math.max(...analytics.series.map((s) => s.count), 1);
+                        const h = Math.max(2, Math.round((d.count / max) * 64));
+                        return (
+                          <div
+                            key={d.day}
+                            title={`${d.day}: ${d.count}`}
+                            className="flex-1 rounded-t bg-primary/70"
+                            style={{ height: `${h}px` }}
+                          />
+                        );
+                      })
+                    )}
+                  </div>
+                  <div className="mt-1 text-[11px] text-faint">Last 14 days</div>
+                </div>
+
+                <div className="rounded-2xl border border-border bg-surface p-5 lg:col-span-2">
+                  <div className="text-sm font-semibold mb-3">Top pages (30d)</div>
+                  {analytics.topPaths.length === 0 ? (
+                    <div className="text-sm text-muted">No page views recorded yet.</div>
+                  ) : (
+                    <ul className="space-y-2">
+                      {analytics.topPaths.map((p) => (
+                        <li key={p.path} className="flex items-center justify-between gap-4 text-sm">
+                          <span className="font-mono text-muted truncate">{p.path}</span>
+                          <span className="font-semibold shrink-0">{p.count}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </section>
+          ) : null}
 
           <section className="mt-10">
             <div className="flex items-center justify-between mb-3">
