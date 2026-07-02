@@ -115,7 +115,7 @@ export function SiteHeader() {
 export function SiteFooter() {
   return (
     <footer className="mt-24 border-t border-border bg-surface-elevated">
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 md:grid-cols-4">
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:grid-cols-2 lg:grid-cols-5">
         <div>
           <div className="flex items-center gap-2 font-bold text-lg">
             <LogoMark className="h-8 w-8 rounded-lg" />
@@ -130,6 +130,14 @@ export function SiteFooter() {
           <FooterLink href="/#features">Features</FooterLink>
           <FooterLink href="/#pricing">Pricing</FooterLink>
           <FooterLink href="/sign-in">Sign in</FooterLink>
+        </FooterColumn>
+        <FooterColumn title="Use cases">
+          <FooterLink href="/dog-vaccine-records">Dog vaccine records</FooterLink>
+          <FooterLink href="/cat-vaccine-records">Cat vaccine records</FooterLink>
+          <FooterLink href="/pet-vaccine-reminders">Vaccine reminders</FooterLink>
+          <FooterLink href="/pet-medical-records">Pet medical records</FooterLink>
+          <FooterLink href="/multiple-pets">Multiple pets</FooterLink>
+          <FooterLink href="/pet-emergency-card">Emergency card</FooterLink>
         </FooterColumn>
         <FooterColumn title="Support">
           <FooterLink href="/contact">Contact</FooterLink>
