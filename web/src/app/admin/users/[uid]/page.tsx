@@ -4,10 +4,10 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { sendPasswordResetEmail } from "firebase/auth";
+import { Button } from "@/components/ui/button";
 import { getIdToken } from "@/lib/auth-context";
 import { requireAuth } from "@/lib/firebase";
 import { fmtDate, fmtDateTime } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 
 interface UserDetail {
   id: string;
@@ -15,6 +15,23 @@ interface UserDetail {
   displayName: string | null;
   isPremium: boolean;
   freeOcrScansUsed?: number;
+  totalOcrCount?: number;
+  totalOcrImageBytes?: number;
+  lastOcrAt?: string | null;
+  errorCount?: number;
+  errors?: Array<{
+    issueId: string;
+    category: string;
+    ticketMessage: string;
+    updatedAt: string | null;
+    error: {
+      message: string;
+      name: string | null;
+      stack: string | null;
+      args: string | null;
+      createdAt: string | null;
+    };
+  }>;
   createdAt: string | null;
   lastSignInAt: string | null;
   disabled?: boolean;
@@ -134,14 +151,13 @@ export default function AdminUserDetailPage() {
 
   const sendPasswordReset = async () => {
     if (!data?.email) {
-      setError("This account has no email (likely Apple private-relay or social-only).");
+      setError("This account has no email (likely Apple private relay or social-only).");
       return;
     }
     setError(null);
     setNotice(null);
     setBusy(true);
     try {
-      // Uses Firebase's built-in reset email — no custom mail service needed.
       await sendPasswordResetEmail(requireAuth(), data.email);
       setNotice(`Password reset email sent to ${data.email}.`);
     } catch (err) {
@@ -179,11 +195,8 @@ export default function AdminUserDetailPage() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl px-4 md:px-8 py-8">
-      <Link
-        href="/admin/users"
-        className="text-sm text-primary font-semibold hover:underline"
-      >
+    <div className="mx-auto max-w-5xl px-4 py-8 md:px-8">
+      <Link href="/admin/users" className="text-sm font-semibold text-primary hover:underline">
         ← All users
       </Link>
 
@@ -191,38 +204,41 @@ export default function AdminUserDetailPage() {
 
       {!data ? (
         <div className="mt-6 rounded-xl border border-border bg-surface p-6 text-sm text-muted">
-          Loading…
+          Loading...
         </div>
       ) : (
         <>
           <header className="mt-4 rounded-2xl border border-border bg-surface p-5">
-            <h1 className="text-2xl font-bold">
-              {data.displayName || data.email || data.id}
-            </h1>
+            <h1 className="text-2xl font-bold">{data.displayName || data.email || data.id}</h1>
             <div className="mt-1 text-sm text-muted">
               {data.email ?? "no email"} · {data.id}
             </div>
-            <div className="mt-4 flex gap-2 flex-wrap">
+            <div className="mt-4 flex flex-wrap gap-2">
               {data.isPremium ? (
-                <span className="rounded-full bg-primary-soft text-primary-dark text-xs font-bold uppercase tracking-wider px-2 py-1">
+                <span className="rounded-full bg-primary-soft px-2 py-1 text-xs font-bold uppercase tracking-wider text-primary-dark">
                   Plus
                 </span>
               ) : (
-                <span className="rounded-full bg-surface-elevated text-muted text-xs font-bold uppercase tracking-wider px-2 py-1">
+                <span className="rounded-full bg-surface-elevated px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted">
                   Free
                 </span>
               )}
               {data.disabled ? (
-                <span className="rounded-full bg-danger-soft text-danger text-xs font-bold uppercase tracking-wider px-2 py-1">
+                <span className="rounded-full bg-danger-soft px-2 py-1 text-xs font-bold uppercase tracking-wider text-danger">
                   Disabled
                 </span>
               ) : null}
             </div>
-            <div className="mt-4 flex gap-2 flex-wrap">
+            <div className="mt-4 flex flex-wrap gap-2">
               <Button variant="outline" size="sm" onClick={togglePremium} disabled={busy}>
                 {data.isPremium ? "Revoke Plus" : "Grant Plus"}
               </Button>
-              <Button variant="outline" size="sm" onClick={sendPasswordReset} disabled={busy || !data.email}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={sendPasswordReset}
+                disabled={busy || !data.email}
+              >
                 Send password reset
               </Button>
               <Button
@@ -238,25 +254,97 @@ export default function AdminUserDetailPage() {
             {notice ? <p className="mt-3 text-sm text-primary">{notice}</p> : null}
           </header>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Stat label="Pets" value={data.pets.length} />
             <Stat label="Vaccines" value={data.vaccineCount} />
             <Stat label="Documents" value={data.documentCount} />
             <Stat label="Reminders" value={data.reminderCount} />
             <Stat label="Journal entries" value={data.entryCount} />
             <Stat label="Support tickets" value={data.ticketCount} />
+            <Stat label="Tracked OCR uses" value={data.totalOcrCount ?? 0} />
+            <Stat label="Stored client errors" value={data.errorCount ?? 0} />
           </div>
 
           <section className="mt-8">
-            <h2 className="font-semibold mb-3">Account dates</h2>
-            <dl className="rounded-2xl border border-border bg-surface p-4 text-sm grid gap-2">
+            <h2 className="mb-3 font-semibold">Account dates</h2>
+            <dl className="grid gap-2 rounded-2xl border border-border bg-surface p-4 text-sm">
               <Row label="Created" value={fmtDateTime(data.createdAt)} />
-              <Row
-                label="Last sign-in"
-                value={data.lastSignInAt ? fmtDateTime(data.lastSignInAt) : "-"}
-              />
+              <Row label="Last sign-in" value={data.lastSignInAt ? fmtDateTime(data.lastSignInAt) : "-"} />
+              <Row label="Last OCR" value={data.lastOcrAt ? fmtDateTime(data.lastOcrAt) : "-"} />
+              <Row label="Tracked OCR uses" value={String(data.totalOcrCount ?? 0)} />
               <Row label="Free OCR scans used" value={String(data.freeOcrScansUsed ?? 0)} />
+              <Row
+                label="OCR image volume"
+                value={formatBytes(data.totalOcrImageBytes ?? 0)}
+              />
             </dl>
+          </section>
+
+          <section className="mt-8">
+            <div className="mb-3 flex items-center justify-between gap-4">
+              <h2 className="font-semibold">Errors ({data.errorCount ?? 0})</h2>
+              {data.ticketCount ? (
+                <Link
+                  href={`/admin/tickets?uid=${data.id}`}
+                  className="text-sm font-semibold text-primary hover:underline"
+                >
+                  Filter ticket queue to this user →
+                </Link>
+              ) : null}
+            </div>
+            {(data.errors?.length ?? 0) === 0 ? (
+              <div className="rounded-xl border border-dashed border-border-strong bg-surface p-6 text-center text-sm text-muted">
+                No stored client errors for this user.
+              </div>
+            ) : (
+              <ul className="divide-y divide-divider rounded-2xl border border-border bg-surface">
+                {data.errors!.map((item) => (
+                  <li key={`${item.issueId}-${item.error.createdAt ?? item.updatedAt ?? "error"}`} className="px-4 py-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-foreground">
+                          {item.error.name ? `${item.error.name}: ` : ""}
+                          {item.error.message}
+                        </div>
+                        <div className="mt-1 text-xs text-muted">
+                          {item.category} · ticket updated{" "}
+                          {item.updatedAt ? fmtDateTime(item.updatedAt) : "-"}
+                        </div>
+                        {item.ticketMessage ? (
+                          <div className="mt-2 text-sm text-muted">{item.ticketMessage}</div>
+                        ) : null}
+                      </div>
+                      <Link
+                        href={`/admin/tickets/${item.issueId}`}
+                        className="shrink-0 text-sm font-semibold text-primary hover:underline"
+                      >
+                        Open ticket
+                      </Link>
+                    </div>
+                    {item.error.args ? (
+                      <details className="mt-3">
+                        <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wider text-faint">
+                          Error args
+                        </summary>
+                        <pre className="mt-2 overflow-auto rounded-xl bg-surface-elevated p-3 text-xs text-muted">
+                          {item.error.args}
+                        </pre>
+                      </details>
+                    ) : null}
+                    {item.error.stack ? (
+                      <details className="mt-3">
+                        <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wider text-faint">
+                          Stack trace
+                        </summary>
+                        <pre className="mt-2 overflow-auto rounded-xl bg-surface-elevated p-3 text-xs text-muted">
+                          {item.error.stack}
+                        </pre>
+                      </details>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
 
           <RecordSection
@@ -266,11 +354,7 @@ export default function AdminUserDetailPage() {
             rows={data.pets.map((p) => ({
               id: p.id,
               primary: p.name,
-              secondary: [
-                p.species,
-                p.breed ?? undefined,
-                p.birthday ? `born ${fmtDate(p.birthday)}` : undefined,
-              ]
+              secondary: [p.species, p.breed ?? undefined, p.birthday ? `born ${fmtDate(p.birthday)}` : undefined]
                 .filter(Boolean)
                 .join(" · "),
               createdAt: p.createdAt,
@@ -341,18 +425,18 @@ export default function AdminUserDetailPage() {
           />
 
           <section className="mt-8">
-            <h2 className="font-semibold mb-3">People &amp; sharing ({data.shares.length})</h2>
+            <h2 className="mb-3 font-semibold">People &amp; sharing ({data.shares.length})</h2>
             {data.shares.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border-strong bg-surface p-6 text-center text-sm text-muted">
-                This user hasn&apos;t invited anyone.
+                This user hasn't invited anyone.
               </div>
             ) : (
-              <ul className="rounded-2xl border border-border bg-surface divide-y divide-divider">
+              <ul className="divide-y divide-divider rounded-2xl border border-border bg-surface">
                 {data.shares.map((s) => (
-                  <li key={s.id} className="px-4 py-3 flex items-start justify-between gap-4">
+                  <li key={s.id} className="flex items-start justify-between gap-4 px-4 py-3">
                     <div className="min-w-0">
-                      <div className="font-semibold truncate">{s.inviteeEmail ?? "—"}</div>
-                      <div className="text-xs text-muted truncate">
+                      <div className="truncate font-semibold">{s.inviteeEmail ?? "-"}</div>
+                      <div className="truncate text-xs text-muted">
                         {[
                           s.petName ? `Pet: ${s.petName}` : null,
                           s.role === "view_only" ? "View only" : "Caregiver",
@@ -363,8 +447,8 @@ export default function AdminUserDetailPage() {
                           .filter(Boolean)
                           .join(" · ")}
                       </div>
-                      <div className="text-[11px] text-muted mt-0.5">
-                        Invited {s.createdAt ? fmtDateTime(s.createdAt) : "—"}
+                      <div className="mt-0.5 text-[11px] text-muted">
+                        Invited {s.createdAt ? fmtDateTime(s.createdAt) : "-"}
                         {s.acceptedAt ? ` · Accepted ${fmtDateTime(s.acceptedAt)}` : ""}
                         {s.revokedAt ? ` · Revoked ${fmtDateTime(s.revokedAt)}` : ""}
                       </div>
@@ -374,8 +458,8 @@ export default function AdminUserDetailPage() {
                         s.status === "accepted"
                           ? "bg-primary-soft text-primary-dark"
                           : s.status === "revoked"
-                          ? "bg-danger-soft text-danger"
-                          : "bg-surface-elevated text-muted"
+                            ? "bg-danger-soft text-danger"
+                            : "bg-surface-elevated text-muted"
                       }`}
                     >
                       {s.status}
@@ -387,7 +471,7 @@ export default function AdminUserDetailPage() {
           </section>
 
           <section className="mt-8">
-            <h2 className="font-semibold mb-3">Tickets ({data.ticketCount})</h2>
+            <h2 className="mb-3 font-semibold">Tickets ({data.ticketCount})</h2>
             <Link
               href={`/admin/tickets?uid=${data.id}`}
               className="text-sm font-semibold text-primary hover:underline"
@@ -405,15 +489,15 @@ function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-xl border border-border bg-surface p-4">
       <div className="text-2xl font-bold">{value}</div>
-      <div className="text-xs text-muted mt-0.5">{label}</div>
+      <div className="mt-0.5 text-xs text-muted">{label}</div>
     </div>
   );
 }
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex gap-4 py-1.5 border-b border-divider last:border-0">
-      <dt className="w-40 text-muted shrink-0">{label}</dt>
+    <div className="flex gap-4 border-b border-divider py-1.5 last:border-0">
+      <dt className="w-40 shrink-0 text-muted">{label}</dt>
       <dd className="break-all">{value}</dd>
     </div>
   );
@@ -440,7 +524,7 @@ function RecordSection({
 }) {
   return (
     <section className="mt-8">
-      <h2 className="font-semibold mb-3">
+      <h2 className="mb-3 font-semibold">
         {title} ({count})
       </h2>
       {rows.length === 0 ? (
@@ -448,19 +532,15 @@ function RecordSection({
           {empty}
         </div>
       ) : (
-        <ul className="rounded-2xl border border-border bg-surface divide-y divide-divider">
+        <ul className="divide-y divide-divider rounded-2xl border border-border bg-surface">
           {rows.map((r) => (
-            <li key={r.id} className="px-4 py-3 flex items-start justify-between gap-4">
+            <li key={r.id} className="flex items-start justify-between gap-4 px-4 py-3">
               <div className="min-w-0">
-                <div className="font-semibold truncate">{r.primary}</div>
-                {r.secondary ? (
-                  <div className="text-xs text-muted capitalize truncate">{r.secondary}</div>
-                ) : null}
+                <div className="truncate font-semibold">{r.primary}</div>
+                {r.secondary ? <div className="truncate text-xs capitalize text-muted">{r.secondary}</div> : null}
               </div>
-              <div className="text-right shrink-0">
-                <div className="text-xs text-muted">
-                  {r.createdAt ? fmtDateTime(r.createdAt) : "—"}
-                </div>
+              <div className="shrink-0 text-right">
+                <div className="text-xs text-muted">{r.createdAt ? fmtDateTime(r.createdAt) : "-"}</div>
                 <span
                   className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
                     r.createdBy.startsWith("Caregiver")
@@ -482,4 +562,11 @@ function RecordSection({
       ) : null}
     </section>
   );
+}
+
+function formatBytes(bytes: number) {
+  if (!bytes) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

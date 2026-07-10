@@ -22,8 +22,9 @@ import { useAuth } from '@/hooks/AuthProvider';
 import { useData } from '@/hooks/useData';
 import { useGate } from '@/hooks/useGate';
 import { extractReceiptInfo, ReceiptOcrResult } from '@/lib/gemini';
+import { showSettingsPermissionAlert } from '@/lib/permissions';
 import { uploadCompressedPhoto } from '@/lib/storage';
-import { createReceipt } from '@/lib/firestore';
+import { createReceipt, incrementFreeOcrScanCount } from '@/lib/firestore';
 import {
   RECEIPT_CATEGORIES,
   RECEIPT_CATEGORY_META,
@@ -41,7 +42,7 @@ export default function ScanReceiptScreen() {
   const params = useLocalSearchParams<{ petId?: string }>();
   const { user } = useAuth();
   const { pets } = useData();
-  const { check } = useGate();
+  const { check, isPremium } = useGate();
 
   const [stage, setStage] = useState<Stage>('capture');
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -64,7 +65,7 @@ export default function ScanReceiptScreen() {
       ? await ImagePicker.requestCameraPermissionsAsync()
       : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permission required', `Enable ${mode} access in Settings.`);
+      showSettingsPermissionAlert(mode === 'camera' ? 'camera' : 'photo library');
       return;
     }
     const res = mode === 'camera'
@@ -81,6 +82,9 @@ export default function ScanReceiptScreen() {
     setStage('scanning');
     try {
       const out = await extractReceiptInfo(uri);
+      if (user && !isPremium) {
+        incrementFreeOcrScanCount(user.uid).catch(() => {});
+      }
       setResult(out);
       setVendor(out.vendor ?? '');
       setAmount(out.total ?? '');

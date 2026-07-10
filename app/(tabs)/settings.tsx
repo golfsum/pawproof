@@ -7,6 +7,7 @@ import { TabsHeader } from '@/components/TabsHeader';
 import { ReportIssueSheet } from '@/components/ReportIssueSheet';
 import { useAuth } from '@/hooks/AuthProvider';
 import { useData } from '@/hooks/useData';
+import { isPurchasesConfigured, restorePurchases } from '@/lib/purchases';
 import { colors, radius, spacing, typography } from '@/theme';
 
 export default function SettingsScreen() {
@@ -14,6 +15,7 @@ export default function SettingsScreen() {
   const { user, profile, signOut, isGuest } = useAuth();
   const { pets, documents } = useData();
   const [reportOpen, setReportOpen] = useState(false);
+  const [restoringPurchases, setRestoringPurchases] = useState(false);
 
   // Which method this account signed in with, derived from Firebase's
   // providerData (google.com / apple.com / password).
@@ -116,15 +118,28 @@ export default function SettingsScreen() {
           icon="refresh-outline"
           title="Restore purchases"
           subtitle="If you've subscribed on this Apple ID before"
-          onPress={() => {
-            // Stub: when StoreKit / RevenueCat is wired, replace this
-            // with the platform restore call. For now we acknowledge
-            // so the App Store reviewer sees the entry point exists.
-            Alert.alert(
-              'Restore purchases',
-              'Subscriptions are restored automatically when you reinstall PawProof while signed into the same Apple ID. If something looks wrong, email support@pawproof.app.',
-            );
+          onPress={async () => {
+            if (!isPurchasesConfigured()) {
+              Alert.alert(
+                'Restore purchases',
+                'In-app purchases are not available in this build right now.',
+              );
+              return;
+            }
+            setRestoringPurchases(true);
+            try {
+              const ok = await restorePurchases();
+              Alert.alert(
+                ok ? 'Restored' : 'Nothing to restore',
+                ok
+                  ? 'Your PawProof Plus access is active again.'
+                  : 'No previous PawProof Plus purchase was found for this Apple ID.',
+              );
+            } finally {
+              setRestoringPurchases(false);
+            }
           }}
+          trailing={restoringPurchases ? <Text style={typography.caption}>Restoring...</Text> : undefined}
         />
 
         <Row

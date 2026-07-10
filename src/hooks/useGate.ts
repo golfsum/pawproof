@@ -8,16 +8,16 @@ import { checkGate, isOcrTrialAvailable, type PremiumGate } from '@/lib/premium'
 export function useGate() {
   const { profile } = useAuth();
   const { pets, documents } = useData();
-
-  // The free pet limit counts only ACTIVE pets, so a free user with parked
-  // (inactive) pets still can't exceed the active limit.
-  const activePetCount = pets.filter(p => !p.inactive).length;
+  // Adding a pet uses the TOTAL stored pet count, not just active pets.
+  // This means a free user only opens a slot by actually deleting a pet,
+  // rather than by parking extras and cycling in new ones.
+  const storedPetCount = pets.length;
 
   const check = useCallback(
     (gate: PremiumGate): boolean => {
       const result = checkGate(gate, {
         profile,
-        petCount: activePetCount,
+        petCount: storedPetCount,
         documentCount: documents.length,
         ocrScansUsed: profile?.freeOcrScansUsed ?? 0,
       });
@@ -27,7 +27,7 @@ export function useGate() {
       }
       return true;
     },
-    [profile, activePetCount, documents.length],
+    [profile, storedPetCount, documents.length],
   );
 
   return {

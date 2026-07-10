@@ -1,5 +1,6 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
+import { FieldValue } from "firebase-admin/firestore";
 import { requireUser } from "@/lib/admin-auth";
 import { adminDb } from "@/lib/firebase-admin";
 
@@ -96,6 +97,9 @@ export async function POST(req: NextRequest) {
   if (!text) {
     return json({ error: "OCR returned no text. Try a clearer photo." }, 502);
   }
+  await recordOcrUsage(uid, dataBase64, mimeType).catch((e) => {
+    console.error("[ocr] usage tracking failed:", e);
+  });
   // Return the raw model text; the client parses it with its existing logic.
   return json({ text });
 }
@@ -146,4 +150,19 @@ async function checkAndRecordRateLimit(
 
 function json(body: unknown, status = 200) {
   return NextResponse.json(body, { status });
+}
+
+async function recordOcrUsage(uid: string, dataBase64: string, mimeType: string) {
+  const ref = adminDb().doc(`users/${uid}/private/ocr`);
+  const estimatedBytes = Math.round((dataBase64.length * 3) / 4);
+  await ref.set(
+    {
+      totalCount: FieldValue.increment(1),
+      totalImageBytes: FieldValue.increment(estimatedBytes),
+      lastSuccessAt: new Date().toISOString(),
+      lastMimeType: mimeType,
+      model: MODEL,
+    },
+    { merge: true },
+  );
 }

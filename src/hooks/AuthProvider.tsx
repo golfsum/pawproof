@@ -27,7 +27,7 @@ import {
 } from '@/lib/socialAuth';
 import {
   configurePurchases,
-  fetchIsPremium,
+  fetchPremiumStatus,
   addPremiumListener,
   isPurchasesConfigured,
 } from '@/lib/purchases';
@@ -161,17 +161,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user || !purchasesReady) return;
     let mounted = true;
     const refresh = () => {
-      fetchIsPremium().then(p => {
-        if (mounted) setEntitlementPremium(p);
+      fetchPremiumStatus().then(status => {
+        if (!mounted) return;
+        setEntitlementPremium(status.isPremium);
+        fsSetPremium(user.uid, status).catch(() => {});
       });
     };
     // Initial fetch + live listener for purchases/renewals/expiries.
     refresh();
-    const remove = addPremiumListener(p => {
+    const remove = addPremiumListener(status => {
       if (!mounted) return;
-      setEntitlementPremium(p);
-      // Best-effort mirror; ignore failures (entitlement stays source of truth).
-      fsSetPremium(user.uid, p).catch(() => {});
+      setEntitlementPremium(status.isPremium);
+      fsSetPremium(user.uid, status).catch(() => {});
     });
     // Re-check whenever the app returns to the foreground, so a purchase,
     // renewal, or expiry that happened elsewhere is reflected promptly.

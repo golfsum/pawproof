@@ -7,9 +7,10 @@ import { Screen } from '@/components/Screen';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { DEFAULT_PLAN, GATE_COPY, PAYWALL_COPY, PLANS, type Plan, type PlanId, type PremiumGate } from '@/lib/premium';
 import {
-  isPurchasesConfigured,
   getActivePackageId,
   getPackages,
+  getTrialEligibility,
+  isPurchasesConfigured,
   manageSubscriptions,
   purchasePackage,
   restorePurchases,
@@ -21,12 +22,14 @@ export default function PaywallScreen() {
   const params = useLocalSearchParams<{ gate?: string; reason?: string }>();
   const [busy, setBusy] = useState(false);
   const [restoring, setRestoring] = useState(false);
-  // Live RevenueCat packages keyed by productId. Empty until loaded (or if
-  // billing isn't configured yet, in which case we degrade gracefully).
+  const [purchaseSuccessPlanId, setPurchaseSuccessPlanId] = useState<PlanId | null>(null);
+  // Live RevenueCat packages keyed by package id. Empty until loaded (or if
+  // billing is not configured yet, in which case we degrade gracefully).
   const [packages, setPackages] = useState<Record<string, PurchasesPackage>>({});
+  const [trialEligibleByProductId, setTrialEligibleByProductId] = useState<Record<string, boolean>>({});
   const billingReady = isPurchasesConfigured();
   // Yearly highlighted by default. We list it first in the UI so the
-  // Best Value framing is the user's anchor — monthly feels like the
+  // Best Value framing is the user's anchor. Monthly feels like the
   // alternative instead of the primary choice.
   const [selected, setSelected] = useState<PlanId>(DEFAULT_PLAN);
 
@@ -40,14 +43,19 @@ export default function PaywallScreen() {
   useEffect(() => {
     if (!billingReady) return;
     getPackages().then(setPackages).catch(() => {});
-    getActivePackageId().then(pkgId => {
-      if (!pkgId) return;
-      const match = (Object.values(PLANS) as Plan[]).find(p => p.packageId === pkgId);
-      if (match) {
-        setCurrentPlanId(match.id);
-        setSelected(match.id); // highlight their current plan by default
-      }
-    }).catch(() => {});
+    getTrialEligibility((Object.values(PLANS) as Plan[]).map(p => p.productId))
+      .then(setTrialEligibleByProductId)
+      .catch(() => {});
+    getActivePackageId()
+      .then(pkgId => {
+        if (!pkgId) return;
+        const match = (Object.values(PLANS) as Plan[]).find(p => p.packageId === pkgId);
+        if (match) {
+          setCurrentPlanId(match.id);
+          setSelected(match.id);
+        }
+      })
+      .catch(() => {});
   }, [billingReady]);
 
   // Per-gate headline override. When the paywall is fired by a specific
@@ -61,13 +69,13 @@ export default function PaywallScreen() {
 
   const handleStart = async () => {
     if (!billingReady) {
-      Alert.alert('Purchases unavailable', 'In-app purchases aren\'t available right now. Please try again later.');
+      Alert.alert('Purchases unavailable', "In-app purchases aren't available right now. Please try again later.");
       return;
     }
 
     const pkg = packages[plan.packageId];
     if (!pkg) {
-      Alert.alert('Unavailable', 'This plan isn\'t available right now. Please try again later.');
+      Alert.alert('Unavailable', "This plan isn't available right now. Please try again later.");
       return;
     }
     setBusy(true);
@@ -75,21 +83,18 @@ export default function PaywallScreen() {
       const res = await purchasePackage(pkg);
       if (res.outcome === 'purchased') {
         // Entitlement (and isPremium) updates via the AuthProvider listener.
-        Alert.alert("You're all set! 🎉", 'Welcome to PawProof Plus — every feature is unlocked.');
-        router.back();
+        setPurchaseSuccessPlanId(plan.id);
       } else if (res.outcome === 'error') {
-        // Friendly, non-technical wording with a retry. The raw SDK message
-        // is only useful to us, so we keep it out of the user's face.
         Alert.alert(
           "Couldn't complete your purchase",
-          "No charge was made. This can happen if the payment was declined or the connection dropped. You can try again, or check your Apple ID payment settings.",
+          'No charge was made. This can happen if the payment was declined or the connection dropped. You can try again, or check your Apple ID payment settings.',
           [
             { text: 'Not now', style: 'cancel' },
             { text: 'Try again', onPress: () => { void handleStart(); } },
           ],
         );
       }
-      // 'cancelled' → user backed out; stay quietly on the paywall.
+      // 'cancelled' means the user backed out. Stay quietly on the paywall.
     } finally {
       setBusy(false);
     }
@@ -98,7 +103,6 @@ export default function PaywallScreen() {
   const handleManage = async () => {
     const ok = await manageSubscriptions();
     if (!ok) {
-      // Fallback: deep-link straight to the iOS subscriptions page.
       Linking.openURL('https://apps.apple.com/account/subscriptions').catch(() => {});
     }
   };
@@ -121,14 +125,63 @@ export default function PaywallScreen() {
     }
   };
 
-  // CTA adapts: already on this plan → disabled "Current plan"; subscribed to a
-  // different one → "Switch to X"; otherwise trial/buy framing.
+  const hasIntroOffer = !!packages[plan.packageId]?.product.introPrice;
+  const isTrialEligible = !!trialEligibleByProductId[plan.productId];
+  const showTrialCta = !!plan.trialDays && hasIntroOffer && isTrialEligible;
+  const ctaSubline = showTrialCta ? plan.ctaSubline : `${plan.price}. Cancel anytime.`;
+
   const onSelectedPlan = currentPlanId === selected;
   const primaryCta = onSelectedPlan
     ? 'Your current plan'
     : isSubscribed
       ? `Switch to ${plan.label}`
-      : plan.trialDays ? PAYWALL_COPY.trialCta : PAYWALL_COPY.buyCta;
+      : showTrialCta
+        ? PAYWALL_COPY.trialCta
+        : PAYWALL_COPY.buyCta;
+
+  if (purchaseSuccessPlanId) {
+    const purchasedPlan = PLANS[purchaseSuccessPlanId];
+    return (
+      <Screen edges={['top', 'bottom']}>
+        <Stack.Screen options={{ headerShown: false, presentation: 'modal' }} />
+        <View style={styles.successWrap}>
+          <View style={styles.successBadge}>
+            <Ionicons name="checkmark" size={34} color="#fff" />
+          </View>
+          <Text style={[typography.display, styles.successTitle]}>PawProof Plus is active</Text>
+          <Text style={styles.successCopy}>
+            Your {purchasedPlan.label.toLowerCase()} plan is ready. Smart Scan, unlimited pets, document storage, and exports are unlocked now.
+          </Text>
+
+          <View style={styles.successCard}>
+            <View style={styles.successRow}>
+              <Ionicons name="sparkles-outline" size={18} color={colors.primary} />
+              <Text style={styles.successRowText}>Smart Scan is ready to use right away</Text>
+            </View>
+            <View style={styles.successRow}>
+              <Ionicons name="document-text-outline" size={18} color={colors.primary} />
+              <Text style={styles.successRowText}>Records and PDFs are fully unlocked</Text>
+            </View>
+            <View style={styles.successRow}>
+              <Ionicons name="paw-outline" size={18} color={colors.primary} />
+              <Text style={styles.successRowText}>No more free-tier pet limits</Text>
+            </View>
+          </View>
+
+          <PrimaryButton
+            title="Start using Plus"
+            onPress={() => router.back()}
+            icon="checkmark-outline"
+          />
+          <PrimaryButton
+            title="Manage subscription"
+            variant="ghost"
+            onPress={handleManage}
+          />
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen edges={['top', 'bottom']}>
@@ -149,7 +202,8 @@ export default function PaywallScreen() {
           <View style={styles.subscribedPill}>
             <Ionicons name="checkmark-circle" size={15} color="#1E6C80" />
             <Text style={styles.subscribedText}>
-              You&apos;re subscribed · {currentPlanId ? PLANS[currentPlanId].label : 'Plus'}
+              {"You're subscribed · "}
+              {currentPlanId ? PLANS[currentPlanId].label : 'Plus'}
             </Text>
           </View>
         ) : (
@@ -191,9 +245,9 @@ export default function PaywallScreen() {
           onPress={handleStart}
           loading={busy}
           disabled={onSelectedPlan}
-          icon={onSelectedPlan ? 'checkmark-outline' : plan.trialDays ? 'sparkles-outline' : 'cart-outline'}
+          icon={onSelectedPlan ? 'checkmark-outline' : showTrialCta ? 'sparkles-outline' : 'cart-outline'}
         />
-        {!onSelectedPlan ? <Text style={styles.ctaSubline}>{plan.ctaSubline}</Text> : null}
+        {!onSelectedPlan ? <Text style={styles.ctaSubline}>{ctaSubline}</Text> : null}
 
         {isSubscribed ? (
           <Pressable onPress={handleManage} hitSlop={10} style={styles.maybeLaterBtn}>
@@ -202,7 +256,7 @@ export default function PaywallScreen() {
         ) : null}
 
         <Pressable onPress={handleRestore} hitSlop={10} disabled={restoring} style={styles.maybeLaterBtn}>
-          <Text style={styles.maybeLater}>{restoring ? 'Restoring…' : 'Restore purchases'}</Text>
+          <Text style={styles.maybeLater}>{restoring ? 'Restoring...' : 'Restore purchases'}</Text>
         </Pressable>
 
         <Pressable onPress={() => router.back()} hitSlop={10} style={styles.maybeLaterBtn}>
@@ -210,8 +264,7 @@ export default function PaywallScreen() {
         </Pressable>
 
         <Text style={styles.disclaimer}>
-          Subscriptions auto-renew until cancelled. Manage or cancel anytime in
-          your Apple ID settings.
+          Subscriptions auto-renew until cancelled. Manage or cancel anytime in your Apple ID settings.
         </Text>
       </ScrollView>
     </Screen>
@@ -277,7 +330,9 @@ const styles = StyleSheet.create({
   scroll: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing['3xl'] },
   logoWrap: {
     alignSelf: 'center',
-    width: 84, height: 84, borderRadius: 22,
+    width: 84,
+    height: 84,
+    borderRadius: 22,
     overflow: 'hidden',
     marginVertical: spacing.sm,
   },
@@ -317,7 +372,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   reasonText: { color: '#92400e', fontSize: 13, textAlign: 'center', fontWeight: '600' },
-
   features: {
     backgroundColor: colors.card,
     borderRadius: radius.lg,
@@ -328,7 +382,6 @@ const styles = StyleSheet.create({
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   check: { width: 22, height: 22, borderRadius: 11, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   featureText: { fontSize: 14, color: colors.text, flex: 1 },
-
   planList: { gap: spacing.sm, marginTop: spacing.md },
   planCard: {
     flexDirection: 'row',
@@ -344,7 +397,7 @@ const styles = StyleSheet.create({
   },
   planCardHighlighted: {
     backgroundColor: colors.primarySoft,
-    borderColor: colors.primary + '55',
+    borderColor: `${colors.primary}55`,
   },
   planCardSelected: {
     borderColor: colors.primary,
@@ -358,21 +411,25 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   planBadgePrimary: { backgroundColor: colors.primary },
-  planBadgeNeutral: { backgroundColor: '#fff', borderWidth: 1, borderColor: colors.primary + '55' },
+  planBadgeNeutral: { backgroundColor: '#fff', borderWidth: 1, borderColor: `${colors.primary}55` },
   planBadgeCurrent: { backgroundColor: '#1E6C80' },
   planBadgeText: { fontSize: 10, fontFamily: fonts.body.semibold, letterSpacing: 0.6, textTransform: 'uppercase' },
-
   planRadio: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   planRadioOuter: {
-    width: 22, height: 22, borderRadius: 11,
-    borderWidth: 2, borderColor: colors.border,
-    alignItems: 'center', justifyContent: 'center',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   planRadioInner: {
-    width: 10, height: 10, borderRadius: 5,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: colors.primary,
   },
-
   planLabel: {
     fontSize: 15,
     fontFamily: fonts.body.semibold,
@@ -396,7 +453,6 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 2,
   },
-
   ctaSubline: {
     textAlign: 'center',
     fontSize: 12,
@@ -406,4 +462,45 @@ const styles = StyleSheet.create({
   maybeLaterBtn: { alignSelf: 'center', padding: spacing.md, marginTop: spacing.xs },
   maybeLater: { color: colors.textMuted, fontWeight: '600' },
   disclaimer: { color: colors.textFaint, fontSize: 11, textAlign: 'center', lineHeight: 16, marginTop: spacing.md },
+  successWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  successBadge: {
+    alignSelf: 'center',
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  successTitle: { textAlign: 'center' },
+  successCopy: {
+    textAlign: 'center',
+    color: colors.textMuted,
+    lineHeight: 21,
+    paddingHorizontal: spacing.sm,
+  },
+  successCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    gap: spacing.md,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  successRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  successRowText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
+  },
 });

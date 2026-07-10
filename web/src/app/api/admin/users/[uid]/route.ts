@@ -46,6 +46,11 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ uid: string
       db.collection("users").doc(uid).collection("journalEntries").count().get(),
       db.collection("support_issues").where("uid", "==", uid).count().get(),
     ]);
+  const [ticketDocs, ocrSnap] = await Promise.all([
+    db.collection("support_issues").where("uid", "==", uid).orderBy("updatedAt", "desc").limit(50).get(),
+    db.collection("users").doc(uid).collection("private").doc("ocr").get(),
+  ]);
+  const ocr = ocrSnap.data() ?? {};
 
   const userRef = db.collection("users").doc(uid);
   // Pull the actual records (capped) so admins can inspect a user's data.
@@ -181,6 +186,37 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ uid: string
     })
     .sort(byCreatedDesc);
 
+  const errors = ticketDocs.docs
+    .map((d) => {
+      const x = d.data();
+      const lastError =
+        x.lastError && typeof x.lastError === "object"
+          ? (x.lastError as {
+              message?: string;
+              name?: string;
+              stack?: string;
+              args?: string;
+              createdAt?: string;
+            })
+          : null;
+      if (!lastError?.message) return null;
+      return {
+        issueId: d.id,
+        category: typeof x.category === "string" ? x.category : "other",
+        ticketMessage: typeof x.message === "string" ? x.message : "",
+        updatedAt: toIso(x.updatedAt),
+        error: {
+          message: lastError.message,
+          name: typeof lastError.name === "string" ? lastError.name : null,
+          stack: typeof lastError.stack === "string" ? lastError.stack : null,
+          args: typeof lastError.args === "string" ? lastError.args : null,
+          createdAt:
+            typeof lastError.createdAt === "string" ? lastError.createdAt : toIso(x.updatedAt),
+        },
+      };
+    })
+    .filter((x): x is NonNullable<typeof x> => !!x);
+
   return NextResponse.json({
     user: {
       id: uid,
@@ -192,6 +228,14 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ uid: string
       createdAt: toIso(profile.createdAt) ?? authUser.metadata.creationTime ?? null,
       lastSignInAt: authUser.metadata.lastSignInTime ?? null,
       disabled: authUser.disabled,
+      totalOcrCount:
+        typeof ocr.totalCount === "number"
+          ? ocr.totalCount
+          : typeof profile.freeOcrScansUsed === "number"
+            ? profile.freeOcrScansUsed
+            : 0,
+      totalOcrImageBytes: typeof ocr.totalImageBytes === "number" ? ocr.totalImageBytes : 0,
+      lastOcrAt: toIso(ocr.lastSuccessAt) ?? toIso(ocr.updatedAt),
       pets,
       vaccines,
       documents,
@@ -204,6 +248,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ uid: string
       reminderCount: remindersCount.data().count,
       entryCount: entriesCount.data().count,
       ticketCount: tickets.data().count,
+      errorCount: errors.length,
+      errors,
     },
   });
 }

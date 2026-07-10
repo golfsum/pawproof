@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { AuthProvider } from "@/lib/auth-context";
 import { PageViewTracker } from "@/components/page-view-tracker";
+import { AuthProvider } from "@/lib/auth-context";
 import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://pawproof.app"),
   title: {
     default: "PawProof: The pet care journal",
-    template: "%s · PawProof",
+    template: "%s | PawProof",
   },
   description:
     "Track vaccines, reminders, records, and emergency info for every pet in your household. Free for 2 pets.",
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen flex flex-col">
+      <body className="flex min-h-screen flex-col">
         <Suspense fallback={null}>
           <PageViewTracker />
         </Suspense>

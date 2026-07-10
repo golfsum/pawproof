@@ -40,7 +40,7 @@ export function checkGate(gate: PremiumGate, args: GateCheckArgs): GateResult {
         return {
           allowed: false,
           gate,
-          reason: 'Managing multiple pets? Upgrade for unlimited pets.',
+          reason: `The free plan includes ${FREE_LIMITS.pets} pets. Delete a pet or upgrade for unlimited pets.`,
         };
       }
       return { allowed: true, gate };

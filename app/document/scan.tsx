@@ -28,6 +28,7 @@ import { uploadCompressedPhoto, uploadFile } from '@/lib/storage';
 import { createDocument, createVaccine, createReminder, updatePet, incrementFreeOcrScanCount } from '@/lib/firestore';
 import { useGate } from '@/hooks/useGate';
 import { scheduleVaccineExpirationReminder } from '@/lib/notifications';
+import { showSettingsPermissionAlert } from '@/lib/permissions';
 import { colors, radius, spacing, typography } from '@/theme';
 import { fmtDate, toDate, fmtMonths } from '@/utils/dates';
 import { fmtWeight } from '@/utils/units';
@@ -142,7 +143,7 @@ export default function ScanDocumentScreen() {
       ? await ImagePicker.requestCameraPermissionsAsync()
       : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permission required', `Enable ${mode} access in Settings.`);
+      showSettingsPermissionAlert(mode === 'camera' ? 'camera' : 'photo library');
       return;
     }
     const res = mode === 'camera'

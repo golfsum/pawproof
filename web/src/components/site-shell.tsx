@@ -3,14 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
-import { Button } from "./ui/button";
+import { cn } from "@/lib/utils";
 import { LogoMark } from "./logo";
-
-// Public site chrome: header + footer that wraps the marketing pages
-// (landing, legal, contact) and any non-app route. The dashboard uses
-// its own shell instead.
+import { Button } from "./ui/button";
 
 const NAV = [
   { href: "/", label: "Home" },
@@ -24,14 +20,15 @@ export function SiteHeader() {
   const pathname = usePathname();
   const { user, loading } = useAuth();
   const [open, setOpen] = useState(false);
+
   return (
     <header className="sticky top-0 z-30 w-full border-b border-border bg-background/85 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <Link href="/" className="flex items-center gap-2 font-bold text-lg tracking-tight">
+        <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight">
           <LogoMark className="h-9 w-9" />
           PawProof
         </Link>
-        <nav className="hidden md:flex items-center gap-1">
+        <nav className="hidden items-center gap-1 md:flex">
           {NAV.map((n) => (
             <Link
               key={n.href}
@@ -51,7 +48,7 @@ export function SiteHeader() {
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Download PawProof on the App Store"
-            className="hidden md:inline-flex transition-transform hover:scale-[1.03]"
+            className="hidden transition-transform hover:scale-[1.03] md:inline-flex"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/app-store-badge.svg" alt="Download on the App Store" className="h-9 w-auto" />
@@ -73,7 +70,7 @@ export function SiteHeader() {
             </>
           )}
           <button
-            className="md:hidden inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border md:hidden"
             onClick={() => setOpen((v) => !v)}
             aria-label="Toggle menu"
           >
@@ -82,7 +79,7 @@ export function SiteHeader() {
         </div>
       </div>
       {open ? (
-        <div className="md:hidden border-t border-border bg-background">
+        <div className="border-t border-border bg-background md:hidden">
           <nav className="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-3">
             {NAV.map((n) => (
               <Link
@@ -117,13 +114,13 @@ export function SiteFooter() {
     <footer className="mt-24 border-t border-border bg-surface-elevated">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:grid-cols-2 lg:grid-cols-5">
         <div>
-          <div className="flex items-center gap-2 font-bold text-lg">
+          <div className="flex items-center gap-2 text-lg font-bold">
             <LogoMark className="h-8 w-8 rounded-lg" />
             PawProof
           </div>
-          <p className="mt-3 text-sm text-muted max-w-xs">
-            The pet care journal: vaccines, reminders, records, and emergency
-            info for every pet in your household.
+          <p className="mt-3 max-w-xs text-sm text-muted">
+            The pet care journal: vaccines, reminders, records, and emergency info for every
+            pet in your household.
           </p>
         </div>
         <FooterColumn title="Product">
@@ -132,12 +129,12 @@ export function SiteFooter() {
           <FooterLink href="/sign-in">Sign in</FooterLink>
         </FooterColumn>
         <FooterColumn title="Use cases">
+          <FooterLink href="/scan-vaccine-records">Scan vaccine records</FooterLink>
+          <FooterLink href="/pet-medication-tracker">Pet medication tracker</FooterLink>
           <FooterLink href="/dog-vaccine-records">Dog vaccine records</FooterLink>
           <FooterLink href="/cat-vaccine-records">Cat vaccine records</FooterLink>
-          <FooterLink href="/pet-vaccine-reminders">Vaccine reminders</FooterLink>
-          <FooterLink href="/pet-medical-records">Pet medical records</FooterLink>
-          <FooterLink href="/multiple-pets">Multiple pets</FooterLink>
-          <FooterLink href="/pet-emergency-card">Emergency card</FooterLink>
+          <FooterLink href="/pet-document-organizer">Pet document organizer</FooterLink>
+          <FooterLink href="/pet-health-timeline">Pet health timeline</FooterLink>
         </FooterColumn>
         <FooterColumn title="Support">
           <FooterLink href="/contact">Contact</FooterLink>
@@ -149,8 +146,8 @@ export function SiteFooter() {
           <FooterLink href="/terms">Terms of Service</FooterLink>
         </FooterColumn>
       </div>
-      <div className="mx-auto max-w-6xl border-t border-border px-4 py-6 text-xs text-faint flex flex-col gap-2 md:flex-row md:justify-between">
-        <span>© {new Date().getFullYear()} PawProof. All rights reserved.</span>
+      <div className="mx-auto flex max-w-6xl flex-col gap-2 border-t border-border px-4 py-6 text-xs text-faint md:flex-row md:justify-between">
+        <span>Copyright {new Date().getFullYear()} PawProof. All rights reserved.</span>
         <span>Made for pet owners who care.</span>
       </div>
     </footer>
@@ -169,7 +166,7 @@ function FooterColumn({ title, children }: { title: string; children: React.Reac
 function FooterLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <li>
-      <Link href={href} className="hover:text-foreground transition">
+      <Link href={href} className="transition hover:text-foreground">
         {children}
       </Link>
     </li>

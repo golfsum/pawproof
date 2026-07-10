@@ -12,6 +12,7 @@ import { PetPicker } from '@/components/PetPicker';
 import { useAuth } from '@/hooks/AuthProvider';
 import { useData } from '@/hooks/useData';
 import { createDocument, createPet } from '@/lib/firestore';
+import { showSettingsPermissionAlert } from '@/lib/permissions';
 import { uploadFile, uploadCompressedPhoto } from '@/lib/storage';
 import { colors, radius, spacing } from '@/theme';
 import type { DocumentKind } from '@/types/models';
@@ -48,7 +49,7 @@ export default function UploadDocumentScreen() {
       ? await ImagePicker.requestCameraPermissionsAsync()
       : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permission required', `Enable ${mode} access in Settings.`);
+      showSettingsPermissionAlert(mode === 'camera' ? 'camera' : 'photo library');
       return;
     }
     const res = mode === 'camera'

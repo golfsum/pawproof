@@ -201,6 +201,9 @@ export default function PetProfileScreen() {
           >
             <Ionicons name="create-outline" size={22} color={colors.text} />
           </Pressable>
+          <Pressable onPress={handleDelete} hitSlop={10} style={styles.iconBtn}>
+            <Ionicons name="trash-outline" size={21} color={colors.danger} />
+          </Pressable>
         </View>
 
         <View style={styles.heroWrap}>

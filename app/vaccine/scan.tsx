@@ -10,10 +10,12 @@ import { DateField } from '@/components/DateField';
 import { PetPicker } from '@/components/PetPicker';
 import { useAuth } from '@/hooks/AuthProvider';
 import { useData } from '@/hooks/useData';
+import { useGate } from '@/hooks/useGate';
 import { extractVaccineInfo, OcrExtractedFields } from '@/lib/gemini';
 import { uploadCompressedPhoto } from '@/lib/storage';
-import { createDocument, createVaccine, createReminder } from '@/lib/firestore';
+import { createDocument, createVaccine, createReminder, incrementFreeOcrScanCount } from '@/lib/firestore';
 import { scheduleVaccineExpirationReminder } from '@/lib/notifications';
+import { showSettingsPermissionAlert } from '@/lib/permissions';
 import { colors, radius, spacing, typography } from '@/theme';
 import { toDate } from '@/utils/dates';
 
@@ -24,6 +26,7 @@ export default function ScanVaccineScreen() {
   const params = useLocalSearchParams<{ petId?: string }>();
   const { user, profile } = useAuth();
   const { pets } = useData();
+  const { isPremium } = useGate();
   const warnDays = profile?.notificationPrefs?.vaccineWarnDays ?? 14;
 
   const [stage, setStage] = useState<Stage>('capture');
@@ -52,7 +55,7 @@ export default function ScanVaccineScreen() {
       ? await ImagePicker.requestCameraPermissionsAsync()
       : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permission required', `Enable ${mode} access in Settings.`);
+      showSettingsPermissionAlert(mode === 'camera' ? 'camera' : 'photo library');
       return;
     }
     const res = mode === 'camera'
@@ -69,6 +72,9 @@ export default function ScanVaccineScreen() {
     setStage('scanning');
     try {
       const out = await extractVaccineInfo(uri);
+      if (user && !isPremium) {
+        incrementFreeOcrScanCount(user.uid).catch(() => {});
+      }
       setRawText(out.rawText);
       setFields(out.fields);
       setVaccineName(out.fields.vaccineName ?? '');

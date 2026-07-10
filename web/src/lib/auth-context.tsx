@@ -92,6 +92,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: (data.email as string | null) ?? null,
           displayName: (data.displayName as string | null) ?? null,
           isPremium: Boolean(data.isPremium),
+          premiumOriginalPurchaseAt:
+            typeof data.premiumOriginalPurchaseAt === "string"
+              ? data.premiumOriginalPurchaseAt
+              : null,
+          premiumLatestPurchaseAt:
+            typeof data.premiumLatestPurchaseAt === "string"
+              ? data.premiumLatestPurchaseAt
+              : null,
+          premiumExpiresAt:
+            typeof data.premiumExpiresAt === "string" ? data.premiumExpiresAt : null,
+          premiumProductId:
+            typeof data.premiumProductId === "string" ? data.premiumProductId : null,
+          premiumWillRenew:
+            typeof data.premiumWillRenew === "boolean"
+              ? data.premiumWillRenew
+              : undefined,
+          premiumPeriodType:
+            typeof data.premiumPeriodType === "string" ? data.premiumPeriodType : null,
+          premiumStore: typeof data.premiumStore === "string" ? data.premiumStore : null,
           freeOcrScansUsed:
             typeof data.freeOcrScansUsed === "number"
               ? data.freeOcrScansUsed

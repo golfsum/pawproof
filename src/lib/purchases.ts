@@ -2,6 +2,8 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import Purchases, {
   type CustomerInfo,
+  type PurchasesEntitlementInfo,
+  type IntroEligibility,
   type PurchasesPackage,
   LOG_LEVEL,
 } from 'react-native-purchases';
@@ -12,6 +14,17 @@ import Purchases, {
 // reflects real renewals/cancellations (which powers downgrade detection).
 
 export const PLUS_ENTITLEMENT = 'plus';
+
+export interface PremiumStatusSnapshot {
+  isPremium: boolean;
+  premiumOriginalPurchaseAt: string | null;
+  premiumLatestPurchaseAt: string | null;
+  premiumExpiresAt: string | null;
+  premiumProductId: string | null;
+  premiumWillRenew: boolean;
+  premiumPeriodType: string | null;
+  premiumStore: string | null;
+}
 
 // Prefer the EXPO_PUBLIC_ env var; fall back to app.json -> extra.revenueCatIosKey
 // so a misconfigured EAS env can't silently disable billing in a build.
@@ -108,12 +121,55 @@ export async function fetchIsPremium(): Promise<boolean> {
   }
 }
 
+export async function fetchPremiumStatus(): Promise<PremiumStatusSnapshot> {
+  if (!configured) return emptyPremiumStatus();
+  try {
+    const info = await Purchases.getCustomerInfo();
+    return statusFromCustomerInfo(info);
+  } catch (e) {
+    console.warn('[purchases] getCustomerInfo failed:', e);
+    return emptyPremiumStatus();
+  }
+}
+
 /** Subscribe to entitlement changes (purchase, renewal, expiry, restore). */
-export function addPremiumListener(cb: (isPremium: boolean) => void): () => void {
+export function addPremiumListener(cb: (status: PremiumStatusSnapshot) => void): () => void {
   if (!configured) return () => {};
-  const handler = (info: CustomerInfo) => cb(hasPlus(info));
+  const handler = (info: CustomerInfo) => cb(statusFromCustomerInfo(info));
   Purchases.addCustomerInfoUpdateListener(handler);
   return () => Purchases.removeCustomerInfoUpdateListener(handler);
+}
+
+function statusFromCustomerInfo(info: CustomerInfo | null | undefined): PremiumStatusSnapshot {
+  const ent = info?.entitlements.active[PLUS_ENTITLEMENT] ?? null;
+  return statusFromEntitlement(ent);
+}
+
+function statusFromEntitlement(ent: PurchasesEntitlementInfo | null): PremiumStatusSnapshot {
+  if (!ent) return emptyPremiumStatus();
+  return {
+    isPremium: true,
+    premiumOriginalPurchaseAt: ent.originalPurchaseDate ?? null,
+    premiumLatestPurchaseAt: ent.latestPurchaseDate ?? null,
+    premiumExpiresAt: ent.expirationDate ?? null,
+    premiumProductId: ent.productIdentifier ?? null,
+    premiumWillRenew: ent.willRenew,
+    premiumPeriodType: ent.periodType ?? null,
+    premiumStore: ent.store ?? null,
+  };
+}
+
+function emptyPremiumStatus(): PremiumStatusSnapshot {
+  return {
+    isPremium: false,
+    premiumOriginalPurchaseAt: null,
+    premiumLatestPurchaseAt: null,
+    premiumExpiresAt: null,
+    premiumProductId: null,
+    premiumWillRenew: false,
+    premiumPeriodType: null,
+    premiumStore: null,
+  };
 }
 
 /**
@@ -147,6 +203,29 @@ export async function getPackages(): Promise<Record<string, PurchasesPackage>> {
     return out;
   } catch (e) {
     console.warn('[purchases] getOfferings failed:', e);
+    return {};
+  }
+}
+
+/**
+ * Return intro/trial eligibility by App Store product identifier.
+ * Unknown and ineligible both map to false so the UI never promises a trial
+ * that Apple may not actually grant.
+ */
+export async function getTrialEligibility(
+  productIds: string[],
+): Promise<Record<string, boolean>> {
+  if (!configured || Platform.OS !== 'ios' || productIds.length === 0) return {};
+  try {
+    const eligibility = await Purchases.checkTrialOrIntroductoryPriceEligibility(productIds);
+    const out: Record<string, boolean> = {};
+    for (const [productId, result] of Object.entries(eligibility as Record<string, IntroEligibility>)) {
+      out[productId] =
+        result.status === Purchases.INTRO_ELIGIBILITY_STATUS.INTRO_ELIGIBILITY_STATUS_ELIGIBLE;
+    }
+    return out;
+  } catch (e) {
+    console.warn('[purchases] intro eligibility check failed:', e);
     return {};
   }
 }

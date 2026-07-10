@@ -3,6 +3,7 @@ import { ActionSheetIOS, ActivityIndicator, Alert, Platform, Pressable, StyleShe
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { showSettingsPermissionAlert } from '@/lib/permissions';
 import { colors, radius, spacing } from '@/theme';
 
 interface Props {
@@ -21,7 +22,7 @@ export function PhotoPicker({ value, onChange, shape = 'circle', size = 110, lab
   const pickFromLibrary = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Photos permission required', 'Enable photo access in Settings to attach a picture.');
+      showSettingsPermissionAlert('photo library');
       return;
     }
     setWorking(true);
@@ -41,7 +42,7 @@ export function PhotoPicker({ value, onChange, shape = 'circle', size = 110, lab
   const pickFromCamera = async () => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Camera permission required', 'Enable camera access in Settings to take a picture.');
+      showSettingsPermissionAlert('camera');
       return;
     }
     setWorking(true);

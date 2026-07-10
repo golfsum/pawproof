@@ -19,6 +19,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { cancelReminder } from './notifications';
+import type { PremiumStatusSnapshot } from './purchases';
 import type {
   Pet,
   JournalEntry,
@@ -101,8 +102,24 @@ export function watchUserProfile(uid: string, cb: (p: UserProfile | null) => voi
   });
 }
 
-export async function setPremium(uid: string, isPremium: boolean): Promise<void> {
-  await updateDoc(doc(usersCol(), uid), { isPremium });
+export async function setPremium(
+  uid: string,
+  premium: boolean | PremiumStatusSnapshot,
+): Promise<void> {
+  if (typeof premium === 'boolean') {
+    await updateDoc(doc(usersCol(), uid), { isPremium: premium });
+    return;
+  }
+  await updateDoc(doc(usersCol(), uid), {
+    isPremium: premium.isPremium,
+    premiumOriginalPurchaseAt: premium.premiumOriginalPurchaseAt,
+    premiumLatestPurchaseAt: premium.premiumLatestPurchaseAt,
+    premiumExpiresAt: premium.premiumExpiresAt,
+    premiumProductId: premium.premiumProductId,
+    premiumWillRenew: premium.premiumWillRenew,
+    premiumPeriodType: premium.premiumPeriodType,
+    premiumStore: premium.premiumStore,
+  });
 }
 
 // Called from the scan flow after a successful Smart Scan run. Uses

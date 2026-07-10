@@ -4,9 +4,6 @@ import { adminDb } from "@/lib/firebase-admin";
 
 export const runtime = "nodejs";
 
-// Aggregated page-view stats for the admin overview. Reads the last 30 daily
-// counter docs and rolls them up into totals, a top-paths list, and a short
-// daily series for a sparkline.
 export async function GET(req: NextRequest) {
   const guard = await requireAdmin(req);
   if (!guard.ok) return guard.response;
@@ -22,37 +19,69 @@ export async function GET(req: NextRequest) {
     return {
       day: (x.day as string) ?? d.id,
       total: Number(x.total ?? 0),
-      paths: (x.paths as Record<string, number>) ?? {},
+      entryTotal: Number(x.entryTotal ?? 0),
+      paths: decodeCounterMap(x.paths),
+      entryPaths: decodeCounterMap(x.entryPaths),
+      sources: decodeCounterMap(x.sources),
+      mediums: decodeCounterMap(x.mediums),
+      referrers: decodeCounterMap(x.referrers),
+      campaigns: decodeCounterMap(x.campaigns),
     };
   });
 
-  const sum = (arr: typeof days) => arr.reduce((a, b) => a + b.total, 0);
-  const total30 = sum(days);
-  const last7 = sum(days.slice(0, 7));
+  const total30 = days.reduce((sum, day) => sum + day.total, 0);
+  const last7 = days.slice(0, 7).reduce((sum, day) => sum + day.total, 0);
+  const entry30 = days.reduce((sum, day) => sum + day.entryTotal, 0);
 
-  // Top paths across the window (decode the safe map keys back to real paths).
-  const pathTotals = new Map<string, number>();
-  for (const d of days) {
-    for (const [k, v] of Object.entries(d.paths)) {
-      let path = k;
-      try {
-        path = decodeURIComponent(k);
-      } catch {
-        /* keep raw key */
-      }
-      pathTotals.set(path, (pathTotals.get(path) ?? 0) + Number(v ?? 0));
-    }
-  }
-  const topPaths = Array.from(pathTotals.entries())
-    .map(([path, count]) => ({ path, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 10);
+  const topPaths = topCounter(days.flatMap((d) => Object.entries(d.paths)))
+    .slice(0, 10)
+    .map(({ label, count }) => ({ path: label, count }));
+  const topLandingPaths = topCounter(days.flatMap((d) => Object.entries(d.entryPaths)))
+    .slice(0, 10)
+    .map(({ label, count }) => ({ path: label, count }));
+  const topSources = topCounter(days.flatMap((d) => Object.entries(d.sources))).slice(0, 8);
+  const topMediums = topCounter(days.flatMap((d) => Object.entries(d.mediums))).slice(0, 8);
+  const topReferrers = topCounter(days.flatMap((d) => Object.entries(d.referrers))).slice(0, 8);
+  const topCampaigns = topCounter(days.flatMap((d) => Object.entries(d.campaigns))).slice(0, 8);
 
-  // Daily series, oldest → newest, last 14 days, for a small bar chart.
   const series = days
     .slice(0, 14)
     .reverse()
     .map((d) => ({ day: d.day, count: d.total }));
 
-  return NextResponse.json({ last7, total30, topPaths, series });
+  return NextResponse.json({
+    last7,
+    total30,
+    entry30,
+    topPaths,
+    topLandingPaths,
+    topSources,
+    topMediums,
+    topReferrers,
+    topCampaigns,
+    series,
+  });
+}
+
+function decodeCounterMap(value: unknown) {
+  const raw = (value as Record<string, number> | undefined) ?? {};
+  return Object.fromEntries(
+    Object.entries(raw).map(([key, count]) => {
+      try {
+        return [decodeURIComponent(key), Number(count ?? 0)];
+      } catch {
+        return [key, Number(count ?? 0)];
+      }
+    }),
+  );
+}
+
+function topCounter(entries: Array<[string, number]>) {
+  const totals = new Map<string, number>();
+  for (const [key, count] of entries) {
+    totals.set(key, (totals.get(key) ?? 0) + Number(count ?? 0));
+  }
+  return Array.from(totals.entries())
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count);
 }

@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { SEO_PAGE_SLUGS } from "@/lib/seo-pages";
 import { SITE_URL } from "@/lib/site";
 
 // Public, indexable routes. Admin/dashboard/api/auth are intentionally left
@@ -16,6 +17,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/contact",
     "/privacy",
     "/terms",
+    ...SEO_PAGE_SLUGS.map((slug) => `/${slug}`),
   ];
   return paths.map((p) => ({
     url: `${SITE_URL}${p}`,

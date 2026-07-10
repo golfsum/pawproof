@@ -42,6 +42,13 @@ export interface UserProfile {
   email: string | null;
   displayName: string | null;
   isPremium: boolean;
+  premiumOriginalPurchaseAt?: string | null;
+  premiumLatestPurchaseAt?: string | null;
+  premiumExpiresAt?: string | null;
+  premiumProductId?: string | null;
+  premiumWillRenew?: boolean;
+  premiumPeriodType?: string | null;
+  premiumStore?: string | null;
   /**
    * Lifetime count of Smart Scan / OCR runs the user has consumed under
    * the free tier. Compared against FREE_LIMITS.ocrScans by the gate so

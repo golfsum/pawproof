@@ -21,6 +21,13 @@ export interface UserProfile {
   email: string | null;
   displayName: string | null;
   isPremium: boolean;
+  premiumOriginalPurchaseAt?: string | null;
+  premiumLatestPurchaseAt?: string | null;
+  premiumExpiresAt?: string | null;
+  premiumProductId?: string | null;
+  premiumWillRenew?: boolean;
+  premiumPeriodType?: string | null;
+  premiumStore?: string | null;
   freeOcrScansUsed?: number;
   onboardingCompleted?: boolean;
   trackingInterests?: string[];
