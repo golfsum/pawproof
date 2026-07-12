@@ -1,0 +1,11 @@
+[mcp_servers.pawproof-seo]
+command = "node"
+args = ["tools/seo-mcp/dist/index.js"]
+cwd = ".."
+env_vars = ["DATAFORSEO_LOGIN", "DATAFORSEO_PASSWORD"]
+enabled = true
+required = false
+enabled_tools = ["competitor_domains", "ranked_keywords", "keyword_metrics", "content_gaps"]
+default_tools_approval_mode = "auto"
+startup_timeout_sec = 15
+tool_timeout_sec = 120

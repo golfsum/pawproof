@@ -13,6 +13,25 @@ PawProof lets pet owners track feeding, walks, training, medications, vet visits
 - **expo-print** for PDF health summary export
 - **expo-image-picker** + **expo-document-picker** for photos and document uploads
 
+## Weekly SEO workflow
+
+The repository includes a read-only MCP server and a repo-scoped Codex skill for competitor research, keyword-gap analysis, Markdown article publishing, RSS, and syndication payloads.
+
+1. Create a DataForSEO account and add `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` to the ignored root `.env` file. DataForSEO calls are paid. Existing process environment variables take precedence when both are present.
+2. Install and build the server:
+
+   ```bash
+   cd tools/seo-mcp
+   npm install
+   npm test
+   ```
+
+3. Trust the project and restart Codex so [`.codex/config.toml`](.codex/config.toml) loads the `pawproof-seo` MCP server.
+4. Invoke `$pawproof-seo` to run the workflow. Articles publish from `web/content/blog` to `/blog`, and `/feed.xml` updates automatically.
+5. Optionally add `SEO_SYNDICATION_WEBHOOK_URL` to the same `.env` file for a Zapier, Make, or first-party endpoint that posts the generated payload to approved social and Google Business Profile destinations. With no webhook, the skill writes a preview under `.seo-findings/syndication`.
+
+The API is live-response, but the underlying ranking data is generally refreshed weekly and Google-derived search-volume data monthly. Reports must preserve those source timestamps and must not label volume as a literal live counter.
+
 ## Project layout
 
 ```

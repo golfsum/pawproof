@@ -11,6 +11,7 @@ import { Button } from "./ui/button";
 const NAV = [
   { href: "/", label: "Home" },
   { href: "/#features", label: "Features" },
+  { href: "/blog", label: "Guides" },
   { href: "/contact", label: "Contact" },
 ];
 
@@ -137,6 +138,7 @@ export function SiteFooter() {
           <FooterLink href="/pet-health-timeline">Pet health timeline</FooterLink>
         </FooterColumn>
         <FooterColumn title="Support">
+          <FooterLink href="/blog">Pet care guides</FooterLink>
           <FooterLink href="/contact">Contact</FooterLink>
           <FooterLink href="mailto:support@pawproof.app">support@pawproof.app</FooterLink>
           <FooterLink href="/unsubscribe">Unsubscribe</FooterLink>

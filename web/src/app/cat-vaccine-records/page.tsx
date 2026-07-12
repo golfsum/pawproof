@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 import { LandingPage } from "@/components/landing-page";
 
 export const metadata: Metadata = {
-  title: "Cat Vaccine Records App: Track Shots & Vet Visits",
+  title: "Cat Vaccine Records: Organize and Share | PawProof",
   description:
-    "Keep your cat's vaccine records and vet history in one place. Scan the certificate, track FVRCP and rabies, and get reminders before boosters expire. Free on iPhone.",
+    "Organize cat vaccine records, save certificates and veterinarian-provided dates, set reminders, and share a current PDF from PawProof.",
   alternates: { canonical: "/cat-vaccine-records" },
   openGraph: {
-    title: "Cat Vaccine Records App | PawProof",
+    title: "Cat Vaccine Records Organized in One Place | PawProof",
     description:
-      "Scan your cat's vaccine card and let PawProof track every date, booster, and vet visit.",
+      "Keep certificates, veterinarian-provided dates, reminders, and shareable records together for every cat.",
     url: "https://pawproof.app/cat-vaccine-records",
   },
 };
@@ -19,46 +19,64 @@ export default function Page() {
     <LandingPage
       heroImage="/screenshots/records.png"
       heroAlt="PawProof records screen showing a cat's vaccines and documents"
-      h1="Keep your cat's vaccine records in one place"
-      lede="Scan the certificate once and PawProof tracks FVRCP, rabies, FeLV, and every vet visit on your iPhone, with a reminder before each booster is due."
-      intro="Cats hide a lot, including when their shots are due. PawProof keeps your cat's vaccine history, vet records, and reminders in one place so you are never guessing whether that annual booster already happened or is coming up."
+      h1="Keep cat vaccine records organized and ready to share"
+      lede="Save the original certificates, keep the dates supplied by your veterinarian with the right cat, and set reminders from the information you record. PawProof keeps the paperwork useful when someone asks for proof."
+      intro="A cat vaccination record is easier to use when its dates, source documents, and reminders stay together. PawProof gives each cat one clear history, so the current certificate is not buried in an email thread or mixed up with another pet's paperwork."
       bullets={[
-        "Scan an FVRCP or rabies certificate and PawProof reads the details for you",
-        "Track indoor and outdoor cat schedules like FeLV without keeping it all in your head",
-        "Get a reminder before a booster expires",
-        "Keep the certificate on hand for boarding, a cattery, or a new vet",
-        "Export a vet-ready PDF whenever someone asks for records",
+        "Save each certificate with the cat it belongs to",
+        "Record dates and clinic details provided by your veterinarian",
+        "Set reminders from the dates saved in PawProof",
+        "Keep notes and supporting documents in the same history",
+        "Share the source document or export a current PDF summary",
       ]}
       sections={[
         {
-          heading: "Built for how cats actually get care",
-          body: "Some cats see the vet once a year, some need more. PawProof holds each vaccine and its own renewal date, so an indoor cat's FVRCP and an outdoor cat's FeLV both stay on track without you tracking spreadsheets.",
+          heading: "Keep cat vaccine records clear and complete",
+          body: "Each saved entry can hold the recorded dates, clinic details, notes, and original proof. That keeps the history understandable without asking you to remember which photo, email, or folder contains the latest certificate.",
         },
         {
-          heading: "Scan it, do not type it",
-          body: "Point your camera at the vaccine certificate and Smart Scan reads the vaccine, date, clinic, and expiration. Confirm and it is saved. No squinting at tiny print or typing dates by hand.",
+          heading: "Connect veterinarian-provided dates to the paperwork",
+          body: "Keep the date supplied by your veterinarian beside the document it came from. If a date changes or you are unsure what belongs in the record, confirm it with your veterinarian before updating PawProof.",
         },
         {
-          heading: "Ready for boarding and vet visits",
-          body: "A cattery or new vet will ask for proof of vaccines. Open PawProof and share the record or a clean PDF right away instead of searching your email and photos.",
+          heading: "Share the current history without rebuilding it",
+          body: "When a veterinarian, caregiver, or facility requests records, you can find the supporting document and export a current PDF summary. PawProof organizes the information you save; it does not choose vaccines or recommend timing for your cat.",
         },
       ]}
       faqs={[
         {
-          q: "Can PawProof read my cat's vaccine certificate?",
-          a: "Yes. Smart Scan reads the vaccine, date, clinic, and expiration from a photo and fills it in for you to confirm.",
+          q: "What can I keep with my cat's vaccine history?",
+          a: "You can save recorded dates, clinic details, notes, and the original certificate or supporting document under the same cat profile.",
         },
         {
-          q: "Does it track FVRCP, rabies, and FeLV?",
-          a: "Yes. Each vaccine gets its own record and renewal reminder, so every shot your cat needs stays on schedule.",
+          q: "Can PawProof remind me about a veterinarian-provided date?",
+          a: "Yes. Set a reminder from the date you recorded. Ask your veterinarian if the timing is unclear or changes.",
         },
         {
-          q: "Is it free?",
-          a: "Yes to start. The free tier covers two pets, three documents, and your first Smart Scan. Plus unlocks unlimited pets, scanning, and PDF exports.",
+          q: "Can I print or share the current record?",
+          a: "You can export a current PDF summary and share the original supporting document. The summary reflects the information you saved in PawProof.",
         },
         {
-          q: "Can I track more than one cat?",
-          a: "Yes. Every cat gets its own profile, records, and reminders.",
+          q: "Does PawProof recommend vaccines or timing for my cat?",
+          a: "No. PawProof organizes records, documents, dates, and reminders. Your veterinarian determines which vaccines and timing are appropriate for your cat.",
+        },
+      ]}
+      relatedLinks={[
+        {
+          href: "/printable-cat-vaccine-record",
+          label: "Prepare a printable-ready cat record",
+        },
+        {
+          href: "/kitten-vaccine-schedule",
+          label: "Organize a veterinarian-provided kitten schedule",
+        },
+        {
+          href: "/scan-vaccine-records",
+          label: "Scan existing vaccine paperwork",
+        },
+        {
+          href: "/pet-vaccine-reminders",
+          label: "Manage pet vaccine reminders",
         },
       ]}
     />

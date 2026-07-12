@@ -1,0 +1,10 @@
+interface:
+  display_name: "PawProof SEO"
+  short_description: "Find content gaps and publish SEO articles"
+  default_prompt: "Use $pawproof-seo to run the weekly competitor gap analysis and draft the best PawProof article."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "pawproof-seo"
+      description: "Read-only DataForSEO competitor and keyword metrics"
+      transport: "stdio"

@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 import { LandingPage } from "@/components/landing-page";
 
 export const metadata: Metadata = {
-  title: "Pet Medical Records App: Store Vet Records on Your Phone",
+  title: "Pet Medical Records App for Organized Care History",
   description:
-    "Keep your pet's medical records, vaccines, meds, weight, and vet documents in one app. Scan paperwork, search everything, and export vet-ready PDFs. Free on iPhone.",
+    "Organize pet medical records, veterinarian-provided details, visit history, medications, and source documents in one shareable care history.",
   alternates: { canonical: "/pet-medical-records" },
   openGraph: {
-    title: "Pet Medical Records App | PawProof",
+    title: "Pet Medical Records Organized in One App | PawProof",
     description:
-      "Store vaccines, meds, weight, and vet documents in one place, and export a vet-ready PDF.",
+      "Keep visits, vaccines, medications, notes, and supporting documents together for each pet.",
     url: "https://pawproof.app/pet-medical-records",
   },
 };
@@ -19,47 +19,53 @@ export default function Page() {
     <LandingPage
       heroImage="/screenshots/records.png"
       heroAlt="PawProof records screen with vaccines and documents"
-      h1="Your pet's whole medical history, on your phone"
-      lede="Vaccines, medications, weight, allergies, microchip, and every vet document in one place. Scan the paperwork, search across it all, and export a PDF your vet will actually recognize."
-      intro="Pet records tend to live in three places at once: a folder in a drawer, your email, and your camera roll. When you switch vets or head to a new city, none of it is where you need it. PawProof pulls it all into one app so your pet's history travels with you."
+      h1="Keep pet medical records organized and ready to share"
+      lede="Bring veterinarian-provided details, visit notes, vaccines, medications, weight entries, and supporting documents into one history for each pet. Find the current information without rebuilding it from scattered files."
+      intro="Pet health records often end up split between clinic emails, paper folders, and camera-roll photos. PawProof gives that information a practical home, so you can review what was recorded, keep the source documents nearby, and export a current summary when a caregiver or clinic requests it."
       bullets={[
-        "Scan vaccine cards and vet invoices and PawProof reads the details",
-        "Track weight over time, allergies, medications, and microchip number",
-        "Store documents and photos so the paperwork is never lost",
-        "Search across every record instead of scrolling",
-        "Export a clean, vet-ready PDF for a new vet, boarding, or a sitter",
+        "Keep visits, vaccines, medications, weight entries, and notes by pet",
+        "Save veterinarian-provided dates and care details",
+        "Attach source PDFs, photos, and clinic documents",
+        "Review an organized history instead of searching several folders",
+        "Export a current PDF summary when records are requested",
       ]}
       sections={[
         {
-          heading: "One place instead of five",
-          body: "Every vaccine, vet visit, medication, and document lives under the pet it belongs to. When your dog changes vets or your cat needs a specialist, the full history is one tap away instead of scattered across paper and screenshots.",
+          heading: "Put pet medical records under the right profile",
+          body: "Keep each visit, vaccine, medication, note, and attached document with the pet it belongs to. Clear ownership matters in a multi-pet home where similar paperwork can be easy to mix up.",
         },
         {
-          heading: "Records that leave the app when you need them to",
-          body: "PawProof exports a polished PDF that matches what vets and boarding facilities expect. Share it by text or email in seconds, so you are never the person promising to send records later and forgetting.",
+          heading: "Keep the summary connected to source documents",
+          body: "An organized entry is useful for review, while the original clinic document provides the source context. Keep both available so you can check the saved information and share the appropriate file when needed.",
         },
         {
-          heading: "Your data stays yours",
-          body: "You can export a full backup anytime, and delete your account and everything in it from inside the app. No lock-in, no hostage data.",
+          heading: "Share a current care history",
+          body: "Export a current PDF summary for a veterinarian, sitter, boarding facility, or other caregiver. PawProof organizes the information you save; it does not interpret the history or provide medical advice.",
         },
       ]}
       faqs={[
         {
-          q: "Can I store vet documents and PDFs?",
-          a: "Yes. You can upload documents and photos, and scan vaccine cards and invoices so the key dates are captured automatically.",
+          q: "What can I keep in a pet medical records app?",
+          a: "PawProof can organize saved visits, vaccines, medications, weight entries, notes, and supporting documents for each pet.",
         },
         {
-          q: "Can I export my pet's records?",
-          a: "Yes. PawProof creates a vet-ready PDF per pet, and you can also export a full backup of your data at any time.",
+          q: "Can I store clinic documents and PDFs?",
+          a: "Yes. Keep source documents and photos with the related record so the saved history has supporting context.",
         },
         {
-          q: "Does it track weight and medications?",
-          a: "Yes. You can log weight over time, list medications and doses, and record allergies and microchip details.",
+          q: "Can I export the current record?",
+          a: "Yes. PawProof creates a current PDF summary from the information saved for the pet and keeps the supporting documents available separately.",
         },
         {
-          q: "Is it free?",
-          a: "Yes to start, covering two pets and three documents. PawProof Plus unlocks unlimited pets, documents, scanning, and PDF exports.",
+          q: "Does PawProof interpret medical records?",
+          a: "No. PawProof organizes owner-entered and veterinarian-provided information. Ask your veterinarian to explain results, recommendations, or care decisions.",
         },
+      ]}
+      relatedLinks={[
+        { href: "/pet-document-organizer", label: "Organize supporting pet documents" },
+        { href: "/pet-health-timeline", label: "Review a chronological pet history" },
+        { href: "/vet-visit-records", label: "Keep vet visit records together" },
+        { href: "/pet-medication-tracker", label: "Organize pet medication records" },
       ]}
     />
   );
