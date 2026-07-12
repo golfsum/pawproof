@@ -9,14 +9,24 @@ export function generateStaticParams() {
   return SEO_PAGE_SLUGS.map((slug) => ({ slug }));
 }
 
-export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
-  const page = getSeoPage(params.slug);
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const page = getSeoPage(slug);
   if (!page) return {};
   return getSeoPageMetadata(page);
 }
 
-export default function SeoLandingPage({ params }: { params: { slug: string } }) {
-  const page = getSeoPage(params.slug);
+export default async function SeoLandingPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const page = getSeoPage(slug);
   if (!page) notFound();
 
   return (
