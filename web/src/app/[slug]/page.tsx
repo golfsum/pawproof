@@ -40,6 +40,7 @@ export default async function SeoLandingPage({
       heroImage={page.heroImage}
       heroAlt={page.heroAlt}
       relatedLinks={page.relatedLinks}
+      sourceLinks={page.sourceLinks}
     />
   );
 }

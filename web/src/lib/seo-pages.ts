@@ -420,44 +420,66 @@ export const SEO_PAGES: SeoPage[] = [
   },
   {
     slug: "kitten-vaccine-schedule",
-    title: "Kitten Vaccine Schedule Tracker and Reminder App",
+    title: "Kitten Vaccine Schedule: Track Vet-Supplied Dates",
     description:
-      "Track a kitten vaccine schedule, booster reminders, and vet paperwork in one place with PawProof.",
-    ogTitle: "Kitten Vaccine Schedule | PawProof",
+      "Track the kitten vaccine schedule from your veterinarian, attach source records, and set reminders from saved dates with PawProof.",
+    ogTitle: "Track a Vet-Supplied Kitten Vaccine Schedule | PawProof",
     ogDescription:
-      "Keep FVRCP, rabies, FeLV, and visit records organized through your kitten's first year.",
+      "Keep veterinarian-provided dates, source records, and reminders organized throughout your kitten's first year.",
     heroImage: "/screenshots/reminders.png",
     heroAlt: "PawProof reminders screen for a kitten vaccine schedule",
-    h1: "Keep your kitten's vaccine schedule from getting lost in the chaos",
+    h1: "Track the kitten vaccine schedule from your veterinarian",
     lede:
-      "Track the first-year shot schedule, save the paperwork, and keep every follow-up reminder attached to the right kitten.",
+      "Enter the dates supplied by your veterinarian, attach the paperwork from each visit, and set reminders from the schedule you were given. PawProof organizes the plan; it does not recommend vaccines or timing.",
     intro:
-      "Kittens are small, but the amount of paperwork they generate is not. Between first visits, boosters, adoption records, and whatever else gets handed to you in the carrier bag, it helps to have one app that keeps the whole story together.",
+      "A kitten vaccine schedule can involve several visits and more paperwork than expected during an already busy first year. PawProof keeps each recorded date, follow-up reminder, and kitten vaccination document under one profile, so you can follow the plan from your veterinarian without rebuilding it from emails and camera-roll photos.",
     bullets: [
-      "Track FVRCP, rabies, FeLV, and follow-up dates",
-      "Keep adoption, rescue, and clinic paperwork together",
-      "Set reminders before each booster is due",
-      "Store notes for meds, weight checks, and early issues",
-      "Export a clean record for a new clinic or cattery",
+      "Enter vaccine and follow-up dates provided by your veterinarian",
+      "Attach certificates and visit paperwork to the matching entry",
+      "Set reminders from the next-visit dates saved for your kitten",
+      "Update the record when your veterinarian changes the plan",
+      "Share source documents or export a current PDF summary",
     ],
     sections: [
       {
-        heading: "Handy for multi-cat homes",
-        body: "If there is already another cat at home, you do not want to guess whose paperwork belongs to which pet. PawProof keeps every kitten's records separate from day one.",
+        heading: "Start with your veterinarian's kitten vaccine schedule",
+        body: "Vaccination plans depend on the kitten and the veterinarian's assessment. Save the vaccine names, dates, and follow-up plan exactly as the clinic provides them. PawProof gives that schedule a practical home without substituting its own medical guidance.",
       },
       {
-        heading: "Start tidy, stay tidy",
-        body: "The easiest time to build a good medical record is right at the beginning. Then the future you with the adult cat gets the payoff.",
+        heading: "Connect every visit to its source paperwork",
+        body: "Keep the certificate, visit summary, and adoption or rescue records with the matching event instead of leaving them scattered across email and photos. The original document stays available when a clinic, caregiver, or facility asks what was recorded.",
+      },
+      {
+        heading: "Use reminders without guessing the timing",
+        body: "Set reminders from the dates your veterinarian gives you. If a date changes or you are unsure what comes next, confirm the plan with the clinic and update the saved schedule rather than relying on a generic calendar.",
       },
     ],
     faqs: [
       {
-        q: "Can I track kitten boosters and later adult boosters in the same record?",
-        a: "Yes. PawProof keeps the history going as your kitten grows up.",
+        q: "Does PawProof recommend a kitten vaccine schedule?",
+        a: "No. PawProof tracks the schedule and dates supplied by your veterinarian. It does not recommend vaccines or decide when your kitten should receive them.",
       },
       {
-        q: "Can I store adoption paperwork too?",
-        a: "Yes. You can keep rescue, shelter, or breeder documents alongside the medical record.",
+        q: "What should I do if the schedule changes?",
+        a: "Confirm the updated plan with your veterinarian, then change the saved date or reminder in PawProof so the record reflects the current instructions.",
+      },
+      {
+        q: "Can I track kitten visits and later adult boosters in the same record?",
+        a: "Yes. The saved events, reminders, and source documents remain in the same pet history as your kitten grows into an adult cat.",
+      },
+      {
+        q: "Can I store adoption paperwork with the vaccine records?",
+        a: "Yes. You can keep rescue, shelter, or breeder documents alongside the veterinarian-provided dates and clinic records.",
+      },
+    ],
+    sourceLinks: [
+      {
+        href: "https://www.aaha.org/resources/2020-aahaaafp-feline-vaccination-guidelines/",
+        label: "AAHA/AAFP feline vaccination guidelines",
+      },
+      {
+        href: "https://www.aaha.org/resources/2020-aahaaafp-feline-vaccination-guidelines/feline-vaccine-calculator/",
+        label: "AAHA lifestyle-based feline vaccine planning resource",
       },
     ],
     relatedLinks: [

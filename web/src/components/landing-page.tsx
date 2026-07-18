@@ -27,6 +27,7 @@ export interface LandingProps {
   heroImage?: string;
   heroAlt?: string;
   relatedLinks?: LandingLink[];
+  sourceLinks?: LandingLink[];
 }
 
 function AppStoreCta() {
@@ -67,6 +68,7 @@ export function LandingPage({
   heroImage = "/screenshots/home.png",
   heroAlt = "PawProof home screen showing today's pet care and reminders",
   relatedLinks,
+  sourceLinks,
 }: LandingProps) {
   const appLd = {
     "@context": "https://schema.org",
@@ -144,6 +146,30 @@ export function LandingPage({
                 <p className="mt-3 leading-relaxed text-muted">{s.body}</p>
               </div>
             ))}
+
+            {sourceLinks?.length ? (
+              <div className="mt-10 rounded-2xl border border-border bg-background px-5 py-5">
+                <h2 className="text-xl font-bold tracking-tight">Authoritative vaccine guidance</h2>
+                <p className="mt-2 leading-relaxed text-muted">
+                  Use current veterinary guidance and your veterinarian&apos;s recommendations for
+                  medical decisions. PawProof only organizes the schedule and records you save.
+                </p>
+                <ul className="mt-4 space-y-2">
+                  {sourceLinks.map((link) => (
+                    <li key={link.href}>
+                      <a
+                        href={link.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-primary underline-offset-4 hover:underline"
+                      >
+                        {link.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
             {faqs?.length ? (
               <div className="mt-14">
