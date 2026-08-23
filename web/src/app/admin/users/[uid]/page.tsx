@@ -5,6 +5,11 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { Button } from "@/components/ui/button";
+import {
+  planLabel,
+  premiumStoreLabel,
+  type PlanCadence,
+} from "@/lib/admin-subscription";
 import { getIdToken } from "@/lib/auth-context";
 import { requireAuth } from "@/lib/firebase";
 import { fmtDate, fmtDateTime } from "@/lib/utils";
@@ -13,7 +18,18 @@ interface UserDetail {
   id: string;
   email: string | null;
   displayName: string | null;
+  emailVerified: boolean;
+  hasProfile: boolean;
+  onboardingCompleted: boolean;
   isPremium: boolean;
+  planCadence: PlanCadence;
+  premiumOriginalPurchaseAt: string | null;
+  premiumLatestPurchaseAt: string | null;
+  premiumExpiresAt: string | null;
+  premiumProductId: string | null;
+  premiumWillRenew: boolean | null;
+  premiumPeriodType: string | null;
+  premiumStore: string | null;
   freeOcrScansUsed?: number;
   totalOcrCount?: number;
   totalOcrImageBytes?: number;
@@ -123,6 +139,8 @@ export default function AdminUserDetailPage() {
   }, [uid]);
 
   useEffect(() => {
+    // Firebase Auth lives on the client, so the admin request starts after mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (uid) void load();
   }, [uid, load]);
 
@@ -216,7 +234,7 @@ export default function AdminUserDetailPage() {
             <div className="mt-4 flex flex-wrap gap-2">
               {data.isPremium ? (
                 <span className="rounded-full bg-primary-soft px-2 py-1 text-xs font-bold uppercase tracking-wider text-primary-dark">
-                  Plus
+                  {detailPlanLabel(data)}
                 </span>
               ) : (
                 <span className="rounded-full bg-surface-elevated px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted">
@@ -226,6 +244,20 @@ export default function AdminUserDetailPage() {
               {data.disabled ? (
                 <span className="rounded-full bg-danger-soft px-2 py-1 text-xs font-bold uppercase tracking-wider text-danger">
                   Disabled
+                </span>
+              ) : null}
+              {!data.hasProfile ? (
+                <span className="rounded-full bg-danger-soft px-2 py-1 text-xs font-bold uppercase tracking-wider text-danger">
+                  Profile missing
+                </span>
+              ) : !data.onboardingCompleted ? (
+                <span className="rounded-full bg-warning-soft px-2 py-1 text-xs font-bold uppercase tracking-wider text-warning">
+                  Setup incomplete
+                </span>
+              ) : null}
+              {data.email && !data.emailVerified ? (
+                <span className="rounded-full bg-surface-elevated px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted">
+                  Email unverified
                 </span>
               ) : null}
             </div>
@@ -278,6 +310,42 @@ export default function AdminUserDetailPage() {
                 value={formatBytes(data.totalOcrImageBytes ?? 0)}
               />
             </dl>
+          </section>
+
+          <section className="mt-8">
+            <h2 className="mb-3 font-semibold">Subscription</h2>
+            <dl className="grid gap-2 rounded-2xl border border-border bg-surface p-4 text-sm">
+              <Row label="Access" value={detailPlanLabel(data)} />
+              {data.isPremium ? (
+                <>
+                  <Row label="Status" value={subscriptionStatus(data)} />
+                  <Row label="Store" value={premiumStoreLabel(data.premiumStore) ?? "-"} />
+                  <Row label="Product ID" value={data.premiumProductId ?? "-"} />
+                  <Row
+                    label="Original purchase"
+                    value={
+                      data.premiumOriginalPurchaseAt
+                        ? fmtDateTime(data.premiumOriginalPurchaseAt)
+                        : "-"
+                    }
+                  />
+                  <Row
+                    label="Latest purchase"
+                    value={
+                      data.premiumLatestPurchaseAt
+                        ? fmtDateTime(data.premiumLatestPurchaseAt)
+                        : "-"
+                    }
+                  />
+                </>
+              ) : null}
+            </dl>
+            {data.isPremium && data.planCadence === "unknown" ? (
+              <p className="mt-2 text-xs text-muted">
+                Billing cadence is unavailable for this Plus account. This can happen with an
+                admin grant or an older account.
+              </p>
+            ) : null}
           </section>
 
           <section className="mt-8">
@@ -428,7 +496,7 @@ export default function AdminUserDetailPage() {
             <h2 className="mb-3 font-semibold">People &amp; sharing ({data.shares.length})</h2>
             {data.shares.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border-strong bg-surface p-6 text-center text-sm text-muted">
-                This user hasn't invited anyone.
+                This user hasn’t invited anyone.
               </div>
             ) : (
               <ul className="divide-y divide-divider rounded-2xl border border-border bg-surface">
@@ -483,6 +551,36 @@ export default function AdminUserDetailPage() {
       )}
     </div>
   );
+}
+
+function detailPlanLabel(user: Pick<UserDetail, "isPremium" | "planCadence">): string {
+  const label = planLabel(user.isPremium, user.planCadence);
+  if (!user.isPremium || label === "Plus") return label;
+  return `${label} Plus`;
+}
+
+function subscriptionStatus(
+  user: Pick<
+    UserDetail,
+    "premiumExpiresAt" | "premiumPeriodType" | "premiumWillRenew"
+  >,
+): string {
+  const parts: string[] = [];
+  const periodType = user.premiumPeriodType?.toUpperCase();
+  if (periodType === "TRIAL") parts.push("Trial");
+  else if (periodType === "INTRO") parts.push("Intro offer");
+  else parts.push("Active");
+
+  if (user.premiumExpiresAt) {
+    const date = fmtDateTime(user.premiumExpiresAt);
+    if (user.premiumWillRenew === true) parts.push(`renews ${date}`);
+    else if (user.premiumWillRenew === false) parts.push(`ends ${date}`);
+    else parts.push(`through ${date}`);
+  } else if (user.premiumWillRenew === false) {
+    parts.push("not renewing");
+  }
+
+  return parts.join(" · ");
 }
 
 function Stat({ label, value }: { label: string; value: number }) {

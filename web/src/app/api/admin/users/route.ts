@@ -1,12 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
+import { resolvePlanCadence } from "@/lib/admin-subscription";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 
 export const runtime = "nodejs";
 
 // Admin user list. Pulls from Firebase Auth + each user's profile doc
-// and counts their pets + tickets so the table view has actionable
-// signal at a glance.
+// and counts pets, reminders, and tickets so the table view has
+// actionable signal at a glance.
 
 function toIso(v: unknown): string | null {
   if (!v) return null;
@@ -56,16 +57,28 @@ export async function GET(req: NextRequest) {
       const profileSnap = await db.collection("users").doc(u.uid).get();
       const profile = profileSnap.data() ?? {};
       const userRef = db.collection("users").doc(u.uid);
-      const [petsCount, ocrSnap] = await Promise.all([
+      const [petsCount, remindersCount, ocrSnap] = await Promise.all([
         userRef.collection("pets").count().get(),
+        userRef.collection("reminders").count().get(),
         userRef.collection("private").doc("ocr").get(),
       ]);
       const ocr = ocrSnap.data() ?? {};
+      const isPremium = profile.isPremium === true;
       return {
         id: u.uid,
         email: u.email ?? null,
         displayName: u.displayName ?? (profile.displayName as string | null) ?? null,
-        isPremium: profile.isPremium === true,
+        emailVerified: u.emailVerified,
+        hasProfile: profileSnap.exists,
+        onboardingCompleted: profile.onboardingCompleted === true,
+        isPremium,
+        planCadence: resolvePlanCadence(profile.premiumProductId),
+        premiumExpiresAt: toIso(profile.premiumExpiresAt),
+        premiumWillRenew:
+          typeof profile.premiumWillRenew === "boolean" ? profile.premiumWillRenew : null,
+        premiumPeriodType:
+          typeof profile.premiumPeriodType === "string" ? profile.premiumPeriodType : null,
+        premiumStore: typeof profile.premiumStore === "string" ? profile.premiumStore : null,
         freeOcrScansUsed:
           typeof profile.freeOcrScansUsed === "number" ? profile.freeOcrScansUsed : 0,
         totalOcrCount:
@@ -76,6 +89,7 @@ export async function GET(req: NextRequest) {
               : 0,
         lastOcrAt: toIso(ocr.lastSuccessAt) ?? toIso(ocr.updatedAt),
         petCount: petsCount.data().count,
+        reminderCount: remindersCount.data().count,
         ticketCount: ticketByUid.get(u.uid) ?? 0,
         errorCount: errorByUid.get(u.uid) ?? 0,
         lastErrorAt: lastErrorAtByUid.get(u.uid) ?? null,
@@ -93,7 +107,10 @@ export async function GET(req: NextRequest) {
     return bMs - aMs;
   });
 
-  return NextResponse.json({ users: rows });
+  return NextResponse.json(
+    { users: rows },
+    { headers: { "Cache-Control": "private, no-store" } },
+  );
 }
 
 async function listAllAuthUsers() {

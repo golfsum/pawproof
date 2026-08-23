@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/admin-auth";
+import { resolvePlanCadence } from "@/lib/admin-subscription";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 
 export const runtime = "nodejs";
@@ -217,41 +218,58 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ uid: string
     })
     .filter((x): x is NonNullable<typeof x> => !!x);
 
-  return NextResponse.json({
-    user: {
-      id: uid,
-      email: authUser.email ?? null,
-      displayName: authUser.displayName ?? (profile.displayName as string | null) ?? null,
-      isPremium: profile.isPremium === true,
-      freeOcrScansUsed:
-        typeof profile.freeOcrScansUsed === "number" ? profile.freeOcrScansUsed : 0,
-      createdAt: toIso(profile.createdAt) ?? authUser.metadata.creationTime ?? null,
-      lastSignInAt: authUser.metadata.lastSignInTime ?? null,
-      disabled: authUser.disabled,
-      totalOcrCount:
-        typeof ocr.totalCount === "number"
-          ? ocr.totalCount
-          : typeof profile.freeOcrScansUsed === "number"
-            ? profile.freeOcrScansUsed
-            : 0,
-      totalOcrImageBytes: typeof ocr.totalImageBytes === "number" ? ocr.totalImageBytes : 0,
-      lastOcrAt: toIso(ocr.lastSuccessAt) ?? toIso(ocr.updatedAt),
-      pets,
-      vaccines,
-      documents,
-      reminders,
-      entries,
-      shares,
-      petCount: petsCount.data().count,
-      vaccineCount: vaccinesCount.data().count,
-      documentCount: documentsCount.data().count,
-      reminderCount: remindersCount.data().count,
-      entryCount: entriesCount.data().count,
-      ticketCount: tickets.data().count,
-      errorCount: errors.length,
-      errors,
+  return NextResponse.json(
+    {
+      user: {
+        id: uid,
+        email: authUser.email ?? null,
+        displayName: authUser.displayName ?? (profile.displayName as string | null) ?? null,
+        emailVerified: authUser.emailVerified,
+        hasProfile: profileSnap.exists,
+        onboardingCompleted: profile.onboardingCompleted === true,
+        isPremium: profile.isPremium === true,
+        planCadence: resolvePlanCadence(profile.premiumProductId),
+        premiumOriginalPurchaseAt: toIso(profile.premiumOriginalPurchaseAt),
+        premiumLatestPurchaseAt: toIso(profile.premiumLatestPurchaseAt),
+        premiumExpiresAt: toIso(profile.premiumExpiresAt),
+        premiumProductId:
+          typeof profile.premiumProductId === "string" ? profile.premiumProductId : null,
+        premiumWillRenew:
+          typeof profile.premiumWillRenew === "boolean" ? profile.premiumWillRenew : null,
+        premiumPeriodType:
+          typeof profile.premiumPeriodType === "string" ? profile.premiumPeriodType : null,
+        premiumStore: typeof profile.premiumStore === "string" ? profile.premiumStore : null,
+        freeOcrScansUsed:
+          typeof profile.freeOcrScansUsed === "number" ? profile.freeOcrScansUsed : 0,
+        createdAt: toIso(profile.createdAt) ?? authUser.metadata.creationTime ?? null,
+        lastSignInAt: authUser.metadata.lastSignInTime ?? null,
+        disabled: authUser.disabled,
+        totalOcrCount:
+          typeof ocr.totalCount === "number"
+            ? ocr.totalCount
+            : typeof profile.freeOcrScansUsed === "number"
+              ? profile.freeOcrScansUsed
+              : 0,
+        totalOcrImageBytes: typeof ocr.totalImageBytes === "number" ? ocr.totalImageBytes : 0,
+        lastOcrAt: toIso(ocr.lastSuccessAt) ?? toIso(ocr.updatedAt),
+        pets,
+        vaccines,
+        documents,
+        reminders,
+        entries,
+        shares,
+        petCount: petsCount.data().count,
+        vaccineCount: vaccinesCount.data().count,
+        documentCount: documentsCount.data().count,
+        reminderCount: remindersCount.data().count,
+        entryCount: entriesCount.data().count,
+        ticketCount: tickets.data().count,
+        errorCount: errors.length,
+        errors,
+      },
     },
-  });
+    { headers: { "Cache-Control": "private, no-store" } },
+  );
 }
 
 const patchSchema = z.object({
