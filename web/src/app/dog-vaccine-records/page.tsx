@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { LandingPage } from "@/components/landing-page";
 
 export const metadata: Metadata = {
-  title: "Dog Vaccine Records: Organize Shot Records | PawProof",
+  title: "Dog Vaccine Records: Organize Shot Records",
   description:
     "Organize dog vaccine records, save the original certificates, track renewal dates, and share a current PDF from PawProof when proof is requested.",
   alternates: { canonical: "/dog-vaccine-records" },
