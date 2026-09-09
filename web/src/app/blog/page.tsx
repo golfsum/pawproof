@@ -3,7 +3,7 @@ import { BlogArchive } from "@/components/blog-archive";
 import { getBlogPosts } from "@/lib/blog";
 
 export const metadata: Metadata = {
-  title: "Pet Care Guides | PawProof",
+  title: "Pet Care Guides",
   description: "Practical guides for organizing pet health records, vaccines, medications, reminders, and care handoffs.",
   alternates: { canonical: "/blog" },
 };
