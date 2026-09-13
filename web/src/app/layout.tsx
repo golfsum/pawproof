@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   },
   description:
     "Track vaccines, reminders, records, and emergency info for every pet in your household. Free for 2 pets.",
+  alternates: { canonical: "/" },
   openGraph: {
     title: "PawProof",
     description:
