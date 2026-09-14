@@ -11,6 +11,7 @@ import { Button } from "./ui/button";
 const NAV = [
   { href: "/", label: "Home" },
   { href: "/#features", label: "Features" },
+  { href: "/lost-and-found", label: "Lost & Found" },
   { href: "/blog", label: "Guides" },
   { href: "/contact", label: "Contact" },
 ];
@@ -31,50 +32,25 @@ export function SiteHeader() {
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
           {NAV.map((n) => (
-            <Link
-              key={n.href}
-              href={n.href}
-              className={cn(
-                "px-3 py-2 text-sm font-medium text-muted hover:text-foreground",
-                pathname === n.href && "text-foreground",
-              )}
-            >
+            <Link key={n.href} href={n.href} className={cn("px-3 py-2 text-sm font-medium text-muted hover:text-foreground", pathname === n.href && "text-foreground")}>
               {n.label}
             </Link>
           ))}
         </nav>
         <div className="flex items-center gap-2">
-          <a
-            href={APP_STORE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Download PawProof on the App Store"
-            className="hidden transition-transform hover:scale-[1.03] md:inline-flex"
-          >
+          <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" aria-label="Download PawProof on the App Store" className="hidden transition-transform hover:scale-[1.03] md:inline-flex">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/app-store-badge.svg" alt="Download on the App Store" className="h-9 w-auto" />
           </a>
           {loading ? null : user ? (
-            <Link href="/dashboard">
-              <Button size="sm">Open dashboard</Button>
-            </Link>
+            <Link href="/dashboard"><Button size="sm">Open dashboard</Button></Link>
           ) : (
             <>
-              <Link href="/sign-in" className="hidden md:inline">
-                <Button variant="ghost" size="sm">
-                  Sign in
-                </Button>
-              </Link>
-              <Link href="/sign-in?mode=signup">
-                <Button size="sm">Get started</Button>
-              </Link>
+              <Link href="/sign-in" className="hidden md:inline"><Button variant="ghost" size="sm">Sign in</Button></Link>
+              <Link href="/sign-in?mode=signup"><Button size="sm">Get started</Button></Link>
             </>
           )}
-          <button
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border md:hidden"
-            onClick={() => setOpen((v) => !v)}
-            aria-label="Toggle menu"
-          >
+          <button className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border md:hidden" onClick={() => setOpen((v) => !v)} aria-label="Toggle menu">
             <span className="block h-0.5 w-4 bg-foreground" />
           </button>
         </div>
@@ -83,23 +59,9 @@ export function SiteHeader() {
         <div className="border-t border-border bg-background md:hidden">
           <nav className="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-3">
             {NAV.map((n) => (
-              <Link
-                key={n.href}
-                href={n.href}
-                onClick={() => setOpen(false)}
-                className="px-3 py-2 text-sm font-medium text-muted hover:text-foreground"
-              >
-                {n.label}
-              </Link>
+              <Link key={n.href} href={n.href} onClick={() => setOpen(false)} className="px-3 py-2 text-sm font-medium text-muted hover:text-foreground">{n.label}</Link>
             ))}
-            <a
-              href={APP_STORE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Download PawProof on the App Store"
-              onClick={() => setOpen(false)}
-              className="mt-2 px-3"
-            >
+            <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" aria-label="Download PawProof on the App Store" onClick={() => setOpen(false)} className="mt-2 px-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/app-store-badge.svg" alt="Download on the App Store" className="h-11 w-auto" />
             </a>
@@ -113,21 +75,21 @@ export function SiteHeader() {
 export function SiteFooter() {
   return (
     <footer className="mt-24 border-t border-border bg-surface-elevated">
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:grid-cols-2 lg:grid-cols-6">
         <div>
-          <div className="flex items-center gap-2 text-lg font-bold">
-            <LogoMark className="h-8 w-8 rounded-lg" />
-            PawProof
-          </div>
-          <p className="mt-3 max-w-xs text-sm text-muted">
-            The pet care journal: vaccines, reminders, records, and emergency info for every
-            pet in your household.
-          </p>
+          <div className="flex items-center gap-2 text-lg font-bold"><LogoMark className="h-8 w-8 rounded-lg" />PawProof</div>
+          <p className="mt-3 max-w-xs text-sm text-muted">The pet care journal: vaccines, reminders, records, emergency info, and free Lost & Found tools for every pet in your household.</p>
         </div>
         <FooterColumn title="Product">
           <FooterLink href="/#features">Features</FooterLink>
           <FooterLink href="/#pricing">Pricing</FooterLink>
           <FooterLink href="/sign-in">Sign in</FooterLink>
+        </FooterColumn>
+        <FooterColumn title="Lost & Found">
+          <FooterLink href="/lost-and-found">Search pets</FooterLink>
+          <FooterLink href="/lost-and-found/report?type=lost">Report a lost pet</FooterLink>
+          <FooterLink href="/lost-and-found/report?type=found">Report a found pet</FooterLink>
+          <FooterLink href="/lost-and-found/how-it-works">How it works</FooterLink>
         </FooterColumn>
         <FooterColumn title="Use cases">
           <FooterLink href="/scan-vaccine-records">Scan vaccine records</FooterLink>
@@ -149,28 +111,16 @@ export function SiteFooter() {
         </FooterColumn>
       </div>
       <div className="mx-auto flex max-w-6xl flex-col gap-2 border-t border-border px-4 py-6 text-xs text-faint md:flex-row md:justify-between">
-        <span>Copyright {new Date().getFullYear()} PawProof. All rights reserved.</span>
-        <span>Made for pet owners who care.</span>
+        <span>Copyright {new Date().getFullYear()} PawProof. All rights reserved.</span><span>Made for pet owners who care.</span>
       </div>
     </footer>
   );
 }
 
 function FooterColumn({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div className="text-xs font-semibold uppercase tracking-wider text-faint">{title}</div>
-      <ul className="mt-3 space-y-2 text-sm text-muted">{children}</ul>
-    </div>
-  );
+  return <div><div className="text-xs font-semibold uppercase tracking-wider text-faint">{title}</div><ul className="mt-3 space-y-2 text-sm text-muted">{children}</ul></div>;
 }
 
 function FooterLink({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <li>
-      <Link href={href} className="transition hover:text-foreground">
-        {children}
-      </Link>
-    </li>
-  );
+  return <li><Link href={href} className="transition hover:text-foreground">{children}</Link></li>;
 }
