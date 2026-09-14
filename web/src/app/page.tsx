@@ -202,8 +202,8 @@ export default function Home() {
                 <h3 className="mt-2 text-2xl font-bold">Keep the everyday pet details in your pocket.</h3>
                 <p className="mt-3 text-sm leading-relaxed text-muted">
                   Use the PawProof iPhone app for vaccine records, reminders, documents,
-                  emergency info, and daily pet care. If you ever need Lost &amp; Found, the
-                  website is one tap away.
+                  emergency info, and daily pet care. The Lost &amp; Found tools are available on
+                  pawproof.app, while the app keeps your everyday pet records organized.
                 </p>
                 <a
                   href={APP_STORE_URL}
