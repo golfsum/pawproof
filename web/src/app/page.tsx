@@ -3,12 +3,8 @@ import { SiteHeader, SiteFooter } from "@/components/site-shell";
 import { Button } from "@/components/ui/button";
 import { PhoneFrame } from "@/components/phone-frame";
 
-// Live App Store listing.
 const APP_STORE_URL = "https://apps.apple.com/us/app/pawproof-app/id6775067128";
 
-// In-app screenshots shown in the showcase strip. Files live in
-// /public/screenshots (see README there). Alternating layout, image side
-// flips each row.
 const SHOWCASE = [
   {
     src: "/screenshots/reminders.png",
@@ -97,11 +93,9 @@ export default function Home() {
     <>
       <SiteHeader />
       <main className="flex-1">
-        {/* Hero */}
         <section className="relative overflow-hidden">
           <div className="mx-auto max-w-6xl px-4 pt-16 pb-20 md:pt-24 md:pb-28">
             <div className="grid items-center gap-12 lg:grid-cols-2">
-              {/* Copy */}
               <div className="text-center lg:text-left">
                 <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-xs font-semibold text-primary-dark">
                   <span className="inline-block h-2 w-2 rounded-full bg-primary" />
@@ -139,8 +133,6 @@ export default function Home() {
                   first Smart Scan.
                 </p>
 
-                {/* QR — easy desktop → phone handoff. Hidden on small screens
-                    (you can't scan the screen you're holding). */}
                 <div className="mt-6 hidden lg:flex items-center gap-4">
                   <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -158,9 +150,7 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Hero screenshot */}
               <div className="relative flex justify-center">
-                {/* Soft glow behind the phone */}
                 <div
                   aria-hidden
                   className="absolute inset-0 -z-10 mx-auto h-72 w-72 self-center rounded-full bg-primary/15 blur-3xl"
@@ -176,8 +166,61 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Features */}
-        <section id="features" className="bg-surface-elevated border-y border-border">
+        <section className="border-y border-border bg-primary-soft/40">
+          <div className="mx-auto max-w-6xl px-4 py-14 md:py-20">
+            <div className="grid gap-10 lg:grid-cols-[1.3fr_0.7fr] lg:items-center">
+              <div>
+                <span className="inline-flex rounded-full bg-primary px-3 py-1 text-xs font-bold uppercase tracking-wider text-white">
+                  New · Free Lost &amp; Found
+                </span>
+                <h2 className="mt-5 max-w-3xl text-3xl font-bold tracking-tight md:text-4xl">
+                  Lost a pet or found one? Start with PawProof.
+                </h2>
+                <p className="mt-4 max-w-2xl text-lg leading-relaxed text-muted">
+                  Create a free lost or found pet report, search public reports in your area,
+                  and share a PawProof link with your community. Lost &amp; Found is free and
+                  separate from PawProof Plus.
+                </p>
+                <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                  <Link href="/lost-and-found/report">
+                    <Button size="lg" className="w-full sm:w-auto">Report a lost or found pet</Button>
+                  </Link>
+                  <Link href="/lost-and-found">
+                    <Button variant="outline" size="lg" className="w-full sm:w-auto">Search lost &amp; found pets</Button>
+                  </Link>
+                  <Link href="/lost-and-found/how-it-works" className="self-center text-sm font-semibold text-primary hover:underline">
+                    How it works →
+                  </Link>
+                </div>
+                <p className="mt-5 text-sm text-muted">
+                  No app install is required to browse public Lost &amp; Found reports.
+                </p>
+              </div>
+
+              <div className="rounded-3xl border border-border bg-surface p-6 shadow-sm md:p-8">
+                <div className="text-xs font-bold uppercase tracking-wider text-primary">Be ready before an emergency</div>
+                <h3 className="mt-2 text-2xl font-bold">Keep the everyday pet details in your pocket.</h3>
+                <p className="mt-3 text-sm leading-relaxed text-muted">
+                  Use the PawProof iPhone app for vaccine records, reminders, documents,
+                  emergency info, and daily pet care. The Lost &amp; Found tools are available on
+                  pawproof.app, while the app keeps your everyday pet records organized.
+                </p>
+                <a
+                  href={APP_STORE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Download PawProof on the App Store"
+                  className="mt-6 inline-flex transition-transform hover:scale-[1.03]"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/app-store-badge.svg" alt="Download on the App Store" className="h-12 w-auto" />
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="features" className="bg-surface-elevated border-b border-border">
           <div className="mx-auto max-w-6xl px-4 py-16 md:py-24">
             <div className="max-w-2xl">
               <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
@@ -210,7 +253,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Screenshot showcase */}
         <section className="border-b border-border">
           <div className="mx-auto max-w-6xl px-4 py-16 md:py-24">
             <div className="max-w-2xl">
@@ -227,7 +269,6 @@ export default function Home() {
                   key={s.src}
                   className="grid items-center gap-8 md:grid-cols-2 md:gap-12"
                 >
-                  {/* Phone alternates side on desktop */}
                   <div
                     className={
                       i % 2 === 1 ? "md:order-2 flex justify-center" : "flex justify-center"
@@ -235,7 +276,6 @@ export default function Home() {
                   >
                     <PhoneFrame src={s.src} alt={s.alt} className="max-w-[240px]" />
                   </div>
-                  {/* Copy */}
                   <div className={i % 2 === 1 ? "md:order-1" : ""}>
                     <div className="text-xs font-semibold uppercase tracking-wider text-primary">
                       {s.eyebrow}
@@ -251,7 +291,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Pricing */}
         <section id="pricing">
           <div className="mx-auto max-w-6xl px-4 py-16 md:py-24">
             <div className="max-w-2xl">
@@ -265,7 +304,6 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Plus features card: single shared list above the three plan tiles */}
             <div className="mt-12 rounded-2xl border border-border bg-surface p-6 max-w-4xl">
               <div className="flex items-baseline justify-between">
                 <h3 className="font-bold text-xl">PawProof Plus includes</h3>
@@ -283,8 +321,6 @@ export default function Home() {
               </ul>
             </div>
 
-            {/* Two plan tiles. Yearly tile is the visual anchor: bigger
-                border, primary background, "Best value" badge. */}
             <div className="mt-6 grid gap-4 lg:grid-cols-2 max-w-2xl">
               <div className="relative rounded-2xl border-2 border-primary bg-primary-soft/40 p-6 lg:order-1">
                 <span className="absolute -top-3 left-6 rounded-full bg-primary px-3 py-1 text-xs font-bold text-white uppercase tracking-wider">
@@ -320,10 +356,8 @@ export default function Home() {
                   Then $4.99/month. Cancel anytime.
                 </p>
               </div>
-
             </div>
 
-            {/* Free row */}
             <div className="mt-6 rounded-2xl border border-dashed border-border-strong bg-surface p-6 max-w-4xl flex flex-col md:flex-row md:items-center gap-4 justify-between">
               <div>
                 <div className="flex items-baseline gap-2">
@@ -343,7 +377,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* CTA */}
         <section className="bg-primary text-white">
           <div className="mx-auto max-w-6xl px-4 py-16 md:py-20 text-center">
             <h2 className="text-3xl md:text-4xl font-bold">
