@@ -9,6 +9,7 @@ import { auth } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 import { LogoMark } from "./logo";
+import { AppsResolveAdminWidget } from "./appsresolve-admin-widget";
 
 interface NavItem {
   href: string;
@@ -94,6 +95,7 @@ export function DashboardShell({ children, kind }: { children: React.ReactNode; 
         </header>
         {mobileNavOpen ? <div className="md:hidden border-b border-border bg-surface"><nav className="px-3 py-3 space-y-1">{nav.map((n) => { const active = pathname === n.href || pathname.startsWith(n.href + "/"); return <Link key={n.href} href={n.href} onClick={() => setMobileNavOpen(false)} className={cn("flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition", active ? "bg-primary-soft text-primary-dark" : "text-muted hover:bg-surface-elevated hover:text-foreground")}><span className="text-base w-5 text-center">{n.icon}</span>{n.label}</Link>; })}</nav></div> : null}
         <main className="flex-1 bg-background">{children}</main>
+        {kind === "admin" ? <AppsResolveAdminWidget /> : null}
       </div>
     </div>
   );

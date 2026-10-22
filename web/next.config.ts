@@ -9,7 +9,7 @@ const csp = [
   // 'unsafe-eval' until per-request nonces are wired. apis.google.com
   // serves the GAPI client for OAuth popups; accounts.google.com is
   // the sign-in iframe.
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://apis.google.com https://accounts.google.com",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://apis.google.com https://accounts.google.com https://appsresolve.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data: https://fonts.gstatic.com",
@@ -27,8 +27,9 @@ const csp = [
     "https://apis.google.com",
     "https://accounts.google.com",
     "https://www.gstatic.com",
+    "https://appsresolve.com",
   ].join(" "),
-  "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com",
+  "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://appsresolve.com",
   "worker-src 'self'",
   "manifest-src 'self'",
   "form-action 'self'",
